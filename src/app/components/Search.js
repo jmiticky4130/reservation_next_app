@@ -2,7 +2,7 @@
  
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
  
-export default function Search({ placeholder }) {
+export default function SearchField({ placeholder }) {
 
   const searchParams = useSearchParams();
   const pathname = usePathname();

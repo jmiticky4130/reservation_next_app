@@ -1,4 +1,4 @@
-import Search from  '@/src/app/components/search';
+import SearchField from '../components/search';
 import { Suspense } from 'react';
 import { getUser } from '../lib/data';
 import UserDisplay from '../components/UserDisplay';
@@ -14,7 +14,7 @@ export default async function Page(props) {
       <div className="flex w-full items-center justify-between">
       </div>
       <div className="mt-4 flex items-center justify-between gap-2 md:mt-8">
-        <Search placeholder="Search users..." />
+        <SearchField placeholder="Search users..." />
       </div>
       <Suspense key={query + currentPage} fallback={<div>Loading...</div>}>
         <UserDisplay query={query} currentPage={currentPage} />
