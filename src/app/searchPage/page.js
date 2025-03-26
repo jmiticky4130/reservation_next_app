@@ -1,4 +1,4 @@
-import Search from  '@/app/components/search';
+import Search from  '@/src/app/components/search';
 import { Suspense } from 'react';
 import { getUser } from '../lib/data';
 import UserDisplay from '../components/UserDisplay';
