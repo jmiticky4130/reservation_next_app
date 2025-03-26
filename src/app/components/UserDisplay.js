@@ -9,7 +9,7 @@ export default async function UserDisplay({ query }) {
   if (!user) {
     return (
       <div className="mt-4 p-4 border rounded">
-        <p>No user found matching "{query}"</p>
+        <p>No user found matching &ldquo;{query}&rdquo;</p>
       </div>
     );
   }
