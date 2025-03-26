@@ -1,14 +1,14 @@
-import {getUsers} from '@/app/lib/data';
+import {getUser} from '@/app/lib/data';
+import Link from 'next/link';
 
 export default async function Home() {
-  const reservations = await getUsers();
+  
   return (
-    <ul>
-        {reservations.map((reservation) => (
-          <li key={reservation.id}>
-            {reservation.name} - {new Date(reservation.date).toLocaleDateString()}
-          </li>
-        ))}
-      </ul>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+  <Link  href="/searchPage">
+  searchPage
+  
+  </Link>
+  </div>
   );
 }
