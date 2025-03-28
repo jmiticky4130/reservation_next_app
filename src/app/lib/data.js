@@ -15,4 +15,35 @@ export async function getUser(name) {
       throw new Error('Failed to fetch users');
     }
   }
+
+
+export async function fetchAppointmentSlots() {
+
+  try{
+    const appointments = await sql`
+      SELECT ap.id, ap.date, ap.start_time, ap.end_time, u.name as user_name 
+      FROM appointment_slots ap
+      JOIN barbers b ON ap.barber_id = b.id
+      JOIN users u ON b.user_id = u.id
+      WHERE ap.is_available = TRUE
+    
+    `;
+    return appointments;
+  } catch (error) {
+    console.error('Database error:', error);
+    throw new Error('Failed to fetch appointments');
+  }
+
+}
   
+
+export async function fetchReservations() {
+  try{
+    const reservations = await sql`
+      SELECT * FROM reservations`;
+    return reservations;
+  }catch (error) {
+    console.error('Database error:', error);
+    throw new Error('Failed to fetch reservations');
+  }
+}
