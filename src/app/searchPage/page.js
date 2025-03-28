@@ -1,4 +1,4 @@
-import SearchField from '../components/search';
+import SearchField from '../components/Search';
 import { Suspense } from 'react';
 import { getUser } from '../lib/data';
 import UserDisplay from '../components/UserDisplay';
