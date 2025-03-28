@@ -29,8 +29,7 @@ export async function createReservation(formData){
             // 2. Update the appointment_slots table 
             await sql`
                 UPDATE appointment_slots 
-                SET reservation_id = ${reservationId},
-                    is_available = false
+                SET reservation_id = ${reservationId}
                 WHERE id = ${rawFormData.appointment_slot_id}
             `;            
         });

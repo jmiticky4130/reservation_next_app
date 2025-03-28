@@ -25,7 +25,7 @@ export async function fetchAppointmentSlots() {
       FROM appointment_slots ap
       JOIN barbers b ON ap.barber_id = b.id
       JOIN users u ON b.user_id = u.id
-      WHERE ap.is_available = TRUE
+      WHERE ap.reservation_id IS NULL
     
     `;
     return appointments;
