@@ -1,28 +1,28 @@
 "use client";
 
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { useActionState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useActionState } from "react";
+import { signIn } from "next-auth/react";
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/reservations';
-  
+  const callbackUrl = searchParams.get("callbackUrl") || "/reservations";
+
   // Use useActionState hook for form submission
   const [state, formAction, isPending] = useActionState(
     async (prevState, formData) => {
       try {
-        const email = formData.get('email');
-        const password = formData.get('password');
-        
+        const email = formData.get("email");
+        const password = formData.get("password");
+
         if (!email || !password) {
-          return 'Email and password are required';
+          return "Email and password are required";
         }
-        
-        // Use NextAuth's signIn function 
-        const response = await signIn('credentials', {
+
+        // Use NextAuth's signIn function
+        const response = await signIn("credentials", {
           email,
           password,
           redirect: false,
@@ -30,22 +30,22 @@ export default function LoginForm() {
 
         if (response?.error) {
           // Authentication failed
-          return 'Invalid email or password';
+          return "Invalid email or password";
         }
-        
+
         // Authentication successful - redirect
         router.push(callbackUrl);
         return null;
       } catch (error) {
-        console.error('Login error:', error);
-        return 'An unexpected error occurred';
+        console.error("Login error:", error);
+        return "An unexpected error occurred";
       }
     },
     null // Initial state
   );
 
   // Check if the user just registered successfully
-  const isJustRegistered = searchParams.get('registered') === 'true';
+  const isJustRegistered = searchParams.get("registered") === "true";
 
   return (
     <form action={formAction} className="space-y-4">
@@ -83,9 +83,7 @@ export default function LoginForm() {
         />
       </div>
 
-      {state && (
-        <div className="text-red-500 text-sm">{state}</div>
-      )}
+      {state && <div className="text-red-500 text-sm">{state}</div>}
 
       <div>
         <button
@@ -93,12 +91,12 @@ export default function LoginForm() {
           disabled={isPending}
           className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-gray-300 hover:text-blue-600 border border-blue-600 hover:border-blue-600 hover:scale-105 transition-all duration-200 disabled:opacity-50"
         >
-          {isPending ? 'Signing in...' : 'Sign In'}
+          {isPending ? "Signing in..." : "Sign In"}
         </button>
       </div>
 
       <div className="text-center text-sm">
-        Don't have an account?{' '}
+        Don&apos;t have an account?{" "}
         <Link href="/register" className="text-blue-600 hover:underline">
           Create an account
         </Link>
