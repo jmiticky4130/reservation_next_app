@@ -9,11 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "15.2.4",
+    "bcryptjs": "^3.0.2",
+    "next": "latest",
+    "next-auth": "beta",
     "postgres": "^3.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "use-debounce": "^10.0.4"
+    "use-debounce": "^10.0.4",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

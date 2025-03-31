@@ -1,7 +1,7 @@
 import { fetchReservations } from '../lib/data';
 import Link from 'next/link';
+import { signOut } from '@/auth';
 
-// Reservation Card Component
 function ReservationCard({ reservation }) {
   return (
     <div className="border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -49,21 +49,23 @@ export default async function ReservationsPage() {
           Book New Appointment
         </Link>
       </div>
-
-      {reservations.length === 0 ? (
-        <div className="text-center py-10 bg-gray-50 rounded-lg">
-          <p className="text-gray-500">No reservations found</p>
-          <Link href="/reservations/create"  className="text-blue-500 hover:underline mt-2 inline-block">
-            Book your first appointment
-          </Link>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <form
+          action={async () => {
+            'use server';
+            await signOut({ redirectTo: '/' });
+          }}
+        >
+          <button className="flex h-[48px] grow items-center justify-center gap-2 rounded-md bg-gray-50 p-3 text-sm font-medium hover:bg-sky-100 hover:text-blue-600 md:flex-none md:justify-start md:p-2 md:px-3">
+            <div className="hidden md:block">Sign Out</div>
+          </button>
+        </form>
+      {reservations.length !== 0 &&
+       ( <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {reservations.map((reservation) => (
             <ReservationCard key={reservation.id} reservation={reservation} />
           ))}
-        </div>
-      )}
+        </div>)
+      }
     </div>
   );
 }

@@ -47,3 +47,15 @@ export async function fetchReservations() {
     throw new Error('Failed to fetch reservations');
   }
 }
+
+
+export async function fetchUsers() {
+  try {
+    const users = await sql`SELECT * FROM users`;
+    console.log("Users fetched:", users);
+    return users; // Returns the first user found (if any)
+  } catch (error) {
+    console.error("Failed to fetch user:", error);
+    throw new Error("Failed to fetch user.");
+  }
+}
