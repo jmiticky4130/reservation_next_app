@@ -1,13 +1,10 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { z } from "zod";
 import bcrypt from "bcryptjs";
 import postgres from "postgres";
-import { fetchUsers } from "@/app/lib/data";
-// PostgreSQL Connection
-const sql = postgres(process.env.POSTGRES_URL, { ssl: "require" });
+import { fetchBarberByEmail } from "@/app/lib/data";
 
-// Function to fetch user from the database
+const sql = postgres(process.env.POSTGRES_URL, { ssl: "require" });
 
 const authOptions = {
     
@@ -18,23 +15,51 @@ const authOptions = {
         },
       name: "Credentials",
       credentials: {
-        email: { label: "Username", type: "text", placeholder: "jsmith" },
+        email: { label: "Username", type: "text", placeholder: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const users = await fetchUsers();
-        console.log("Users:", users);
-        const user = users.find(
-          (user) =>
-            user.email === credentials.email &&
-            bcrypt.compareSync(credentials.password, user.password_hash)
+
+        const barber = await fetchBarberByEmail(credentials.email);
+        if (!barber) {
+          throw new Error("No user found with the email provided");
+        }
+
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          barber.password_hash // Assuming your DB field is named password_hash
         );
-        return user
-          ? { id: user.id, name: user.name, email: user.email }
+      
+        if (!isPasswordValid) {
+          return null;
+        }
+        return barber
+          ? {
+              id: barber.id,
+              name: barber.name,
+              email: barber.email,
+              barbershopId: barber.barbershop_id,
+            }
           : null;
       },
     }),
   ],
+  callbacks: {
+    jwt: ({ token, user }) => {
+      if (user) {
+        // Just pass the user ID to the token
+        token.userId = user.id;
+      }
+      return token;
+    },
+    session: ({ session, token }) => {
+      // Add the user ID to the session from the token
+      if (session?.user) {
+        session.user.id = token.sub;
+      }
+      return session;
+    }
+  },
   secret: process.env.AUTH_SECRET,
 };
 

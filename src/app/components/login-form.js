@@ -3,38 +3,24 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useActionState } from "react";
-import { signIn } from "next-auth/react";
+import { handleLogin } from "../lib/actions";
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/reservations";
 
   // Use useActionState hook for form submission
   const [state, formAction, isPending] = useActionState(
     async (prevState, formData) => {
       try {
-        const email = formData.get("email");
-        const password = formData.get("password");
-
-        if (!email || !password) {
-          return "Email and password are required";
-        }
-
-        // Use NextAuth's signIn function
-        const response = await signIn("credentials", {
-          email,
-          password,
-          redirect: false,
-        });
-
+        const response = await handleLogin(formData);
         if (response?.error) {
           // Authentication failed
-          return "Invalid email or password";
+          return "Invalid email or passwords";
         }
 
-        // Authentication successful - redirect
-        router.push(callbackUrl);
+
+        router.push('/barber');
         return null;
       } catch (error) {
         console.error("Login error:", error);
@@ -44,17 +30,8 @@ export default function LoginForm() {
     null // Initial state
   );
 
-  // Check if the user just registered successfully
-  const isJustRegistered = searchParams.get("registered") === "true";
-
   return (
     <form action={formAction} className="space-y-4">
-      {isJustRegistered && (
-        <div className="bg-green-50 border border-green-500 text-green-700 px-4 py-3 rounded">
-          Account created successfully! Please log in.
-        </div>
-      )}
-
       <div>
         <label htmlFor="email" className="block text-sm font-medium">
           Email

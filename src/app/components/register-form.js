@@ -15,17 +15,18 @@ export default function RegisterForm() {
       const email = formData.get('email');
       const password = formData.get('password');
       const confirmPassword = formData.get('confirmPassword');
+      const barbershopName = formData.get('barbershopName');
 
       if (password !== confirmPassword) {
         return 'Passwords do not match';
       }
 
-      const res = await registerAndLogin(name, email, password);
+      const res = await registerAndLogin(name, email, password, barbershopName);
       if (res.error) {
         return res.error;
       }
 
-      router.push('/reservations');
+      router.push(`/barbershops/?id=${res.id}`);
     },
     null
   );
@@ -79,6 +80,19 @@ export default function RegisterForm() {
           id="confirmPassword"
           name="confirmPassword"
           type="password"
+          required
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="barbershopName" className="block text-sm font-medium">
+          Confirm Password
+        </label>
+        <input
+          id="barbershopName"
+          name="barbershopName"
+          type="text"
           required
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
         />

@@ -1,61 +1,66 @@
-import postgres from 'postgres';
+'use server';
+import postgres from "postgres";
+import { formatDateISO } from "../util/formatFunctions";
 
-const sql = postgres(process.env.DATABASE_URL,  { ssl: 'verify-full' });
+const sql = postgres(process.env.DATABASE_URL, { ssl: "verify-full" });
 
-export async function getUser(name) {
-    try {
-      const user = await sql`
-        SELECT * FROM users
-        WHERE name = ${name}
-        ORDER BY name DESC
-      `;
-      return user;
-    } catch (error) {
-      console.error('Database error:', error);
-      throw new Error('Failed to fetch users');
-    }
-  }
-
-
-export async function fetchAppointmentSlots() {
-
-  try{
-    const appointments = await sql`
-      SELECT ap.id, ap.date, ap.start_time, ap.end_time, u.name as user_name 
-      FROM appointment_slots ap
-      JOIN barbers b ON ap.barber_id = b.id
-      JOIN users u ON b.user_id = u.id
-      WHERE ap.reservation_id IS NULL
-    
-    `;
-    return appointments;
-  } catch (error) {
-    console.error('Database error:', error);
-    throw new Error('Failed to fetch appointments');
-  }
-
-}
-  
-
-export async function fetchReservations() {
-  try{
-    const reservations = await sql`
-      SELECT * FROM reservations`;
-    return reservations;
-  }catch (error) {
-    console.error('Database error:', error);
-    throw new Error('Failed to fetch reservations');
-  }
-}
-
-
-export async function fetchUsers() {
+export async function fetchBarberByEmail(email) {
   try {
-    const users = await sql`SELECT * FROM users`;
-    console.log("Users fetched:", users);
-    return users; // Returns the first user found (if any)
+    const barber = await sql`
+        SELECT * FROM barbers
+        WHERE email = ${email}
+        LIMIT 1
+      `;
+    return barber[0] || null;
   } catch (error) {
-    console.error("Failed to fetch user:", error);
-    throw new Error("Failed to fetch user.");
+    console.error("Database error:", error);
+    throw new Error("Failed to fetch users");
+  }
+}
+
+export async function fetchBarberById(id) {
+  try {
+    const barber = await sql`
+        SELECT name FROM barbers
+        WHERE id = ${id}
+        LIMIT 1
+      `;
+    return barber[0] || null;
+  } catch (error) {
+    console.error("Database error:", error);
+    throw new Error("Failed to fetch users");
+  }
+}
+
+export async function fetchAppointmentSlots(barberId, startDate = new Date()) {
+  try {
+    // Create a date range for the week
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    
+    // Format dates for SQL query
+    const startStr = formatDateISO(start);
+    const endStr = formatDateISO(end);
+    
+    const slots = await sql`
+      SELECT 
+        day::text,
+        barber_id, 
+        customer_id, 
+        start_time::text
+      FROM appointment_slots
+      WHERE barber_id = ${barberId}
+      AND day >= ${startStr}
+      AND day < ${endStr}
+      ORDER BY day, start_time
+    `;
+    
+    return slots || [];
+  } catch (error) {
+    console.error("Database error:", error);
+    throw new Error("Failed to fetch appointment slots");
   }
 }
