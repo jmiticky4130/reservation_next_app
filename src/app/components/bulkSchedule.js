@@ -11,6 +11,7 @@ import {
 import { saveAppointmentSlots } from "@/app/lib/actions";
 import Select from "react-select";
 import { useRouter } from "next/navigation";
+import selectStyles from "@/app/util/selectStyles"; 
 
 const BulkScheduler = ({ barberId }) => {
   // States for form fields
@@ -41,27 +42,6 @@ const BulkScheduler = ({ barberId }) => {
       ...prev,
       [day]: !prev[day],
     }));
-  };
-
-  const selectStyles = {
-    control: (base) => ({
-      ...base,
-      padding: "0.375rem",
-      borderColor: "#d1d5db",
-      boxShadow: "none",
-      "&:hover": {
-        borderColor: "#3b82f6",
-      },
-    }),
-
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isSelected ? "#2563eb" : "white",
-      color: state.isSelected ? "white" : "#1f2937",
-      "&:hover": {
-        backgroundColor: state.isSelected ? "#2563eb" : "#f3f4f6",
-      },
-    }),
   };
 
   const timeOptions = [

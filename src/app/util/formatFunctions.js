@@ -49,17 +49,14 @@ export function formatDateISO(date) {
 }
 
 /**
- * Formats a time string 'HH:MM' or 'HH:MM:SS' into a display format (e.g., "7:15 AM").
+ * Formats a time string 'HH:MM' or 'HH:MM:SS' into military time (24-hour format).
  * @param {string} timeString - The time string.
- * @returns {string} The formatted time string for display.
+ * @returns {string} The formatted time string in 24-hour format.
  */
 export function formatTimeDisplay(timeString) {
-    if (!timeString) return '';
-    const [hours, minutes] = timeString.split(':');
-    const hourNum = parseInt(hours, 10);
-    const isPM = hourNum >= 12;
-    const displayHour = hourNum % 12 || 12;
-    return `${displayHour}:${minutes} ${isPM ? 'PM' : 'AM'}`;
+  if (!timeString) return '';
+  // Simply return the HH:MM portion of the time string
+  return timeString.substring(0, 5);
 }
 
 /**

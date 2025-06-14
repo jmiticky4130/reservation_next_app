@@ -1,6 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";;
 import {
   formatDateISO,
   formatTimeDisplay,
@@ -24,9 +23,7 @@ export default function Calendar({
   initialAppointmentSlots,
   barberId,
 }) {
-  const router = useRouter();
 
-  // 1) initialize all state from props
   const [currentWeekStart, setCurrentWeekStart] = useState(initialWeekDates[0]);
   const [weekDates, setWeekDates] = useState(initialWeekDates);
   const [appointmentSlots, setAppointmentSlots] = useState(
@@ -40,7 +37,7 @@ export default function Calendar({
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [bookedAlert, setBookedAlert] = useState(false);
-  // 2) mirror any prop change into state
+
   useEffect(() => {
     setWeekDates(initialWeekDates);
     setCurrentWeekStart(initialWeekDates[0]);

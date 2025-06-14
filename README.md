@@ -38,3 +38,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 my booked appointments - barber
 procedures to insert repeating amount of available 
+
+need to add an authentification for the user - need to connect it with the click in the appointment calendar - maybe through searchparams
+
+need to create a page for the user login and signin like the one for barber

@@ -1,4 +1,4 @@
-'use server';
+"use server";
 import postgres from "postgres";
 import { formatDateISO } from "../util/formatFunctions";
 
@@ -12,6 +12,20 @@ export async function fetchBarberByEmail(email) {
         LIMIT 1
       `;
     return barber[0] || null;
+  } catch (error) {
+    console.error("Database error:", error);
+    throw new Error("Failed to fetch users");
+  }
+}
+
+export async function fetchCustomerByEmail(email) {
+  try {
+    const customer = await sql`
+    SELECT * FROM customers
+    WHERE email = ${email}
+    LIMIT 1
+  `;
+    return customer[0] || null;
   } catch (error) {
     console.error("Database error:", error);
     throw new Error("Failed to fetch users");
@@ -37,15 +51,33 @@ export async function fetchAppointmentSlots(barberId, startDate = new Date()) {
     // Create a date range for the week
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
-    
+
     const end = new Date(start);
-    end.setDate(end.getDate() + 7);
-    
+    if (barberId === 0) {
+      end.setDate(end.getDate() + 60); // 60 days in advance for all possible appointment
+    } else {
+      end.setDate(end.getDate() + 7); // 7 days in advance for a specific barber for barber calendar
+    }
+
     // Format dates for SQL query
     const startStr = formatDateISO(start);
     const endStr = formatDateISO(end);
-    
-    const slots = await sql`
+    let slots;
+    if (barberId === 0) {
+      slots = await sql`
+      SELECT 
+        day::text,
+        barber_id, 
+        customer_id, 
+        start_time::text
+      FROM appointment_slots
+      WHERE day >= ${startStr}
+      AND day < ${endStr}
+      AND customer_id IS NULL
+      ORDER BY day, start_time
+    `;
+    } else {
+      slots = await sql`
       SELECT 
         day::text,
         barber_id, 
@@ -57,10 +89,33 @@ export async function fetchAppointmentSlots(barberId, startDate = new Date()) {
       AND day < ${endStr}
       ORDER BY day, start_time
     `;
-    
+    }
+
     return slots || [];
   } catch (error) {
     console.error("Database error:", error);
     throw new Error("Failed to fetch appointment slots");
+  }
+}
+
+export async function getBarbersServices() {
+  try {
+    const services = await sql`
+      SELECT * FROM services
+      ORDER BY duration_minutes ASC
+    `;
+
+    const barberServices = await sql`
+      SELECT bs.* , b.name FROM barber_services bs
+      join barbers b on b.id = bs.barber_id
+      `;
+
+    return {
+      services: services || [],
+      barberServices: barberServices || [],
+    };
+  } catch (error) {
+    console.error("Database error:", error);
+    throw new Error("Failed to fetch services");
   }
 }

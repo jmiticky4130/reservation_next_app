@@ -1,10 +1,8 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import postgres from "postgres";
-import { fetchBarberByEmail } from "@/app/lib/data";
+import { fetchBarberByEmail,  fetchCustomerByEmail } from "@/app/lib/data";
 
-const sql = postgres(process.env.POSTGRES_URL, { ssl: "require" });
 
 const authOptions = {
     
@@ -17,49 +15,55 @@ const authOptions = {
       credentials: {
         email: { label: "Username", type: "text", placeholder: "email" },
         password: { label: "Password", type: "password" },
+        role:     { label: "Role",     type: "text" } 
       },
       async authorize(credentials) {
 
-        const barber = await fetchBarberByEmail(credentials.email);
-        if (!barber) {
+        const isBarber = credentials.role === "barber";
+        const actor = isBarber ? 
+          await fetchBarberByEmail(credentials.email):
+          await fetchCustomerByEmail(credentials.email);
+        
+        if (!actor) {
           throw new Error("No user found with the email provided");
         }
 
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
-          barber.password_hash // Assuming your DB field is named password_hash
+          actor.password_hash // Assuming your DB field is named password_hash
         );
       
         if (!isPasswordValid) {
           return null;
         }
-        return barber
-          ? {
-              id: barber.id,
-              name: barber.name,
-              email: barber.email,
-              barbershopId: barber.barbershop_id,
+        return {
+              id: actor.id,
+              name: actor.name,
+              email: actor.email,
+              role: credentials.role
             }
-          : null;
+         
       },
     }),
   ],
   callbacks: {
-    jwt: ({ token, user }) => {
+    jwt({ token, user }) {
       if (user) {
-        // Just pass the user ID to the token
         token.userId = user.id;
+        token.role   = user.role;
       }
       return token;
     },
-    session: ({ session, token }) => {
-      // Add the user ID to the session from the token
-      if (session?.user) {
-        session.user.id = token.sub;
+
+    session({ session, token }) {
+      if (session.user) {
+        session.user.id   = token.userId;
+        session.user.role = token.role;
       }
       return session;
-    }
+    },
   },
+
   secret: process.env.AUTH_SECRET,
 };
 
