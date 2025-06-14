@@ -8,7 +8,6 @@ import LoginForm from "./login-form";
 export default function RegisterLoginModal({ 
   isOpen, 
   onClose, 
-  appointmentData
 }) {
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
 
@@ -63,7 +62,7 @@ export default function RegisterLoginModal({
                 <LoginForm role="customer" showRegisterLink={false} showRoleSwitch={false} />
                 <div className="mt-4 text-center">
                   <p className="text-gray-400 text-sm">
-                    Don't have an account?{" "}
+                    Don&apos;t have an account?{" "}
                     <button
                       onClick={handleSwitchAuthMode}
                       className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"

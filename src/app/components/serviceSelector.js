@@ -324,7 +324,6 @@ export default function ServiceSelector({
         <RegisterLoginModal
           isOpen={showRegisterModal}
           onClose={() => setShowRegisterModal(false)}
-          appointmentData={appointmentData}
     />
       )}
       { session && appointmentData && (
