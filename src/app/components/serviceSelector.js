@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import AppointmentCalendar from "./appointmentCalendar";
 import { createUserAppointment } from "@/app/lib/actions";
+import Button from "./buttonfm";
 import {
   getAvailableCombinations,
   groupSlotsByBarberAndDay,
@@ -35,6 +36,7 @@ export default function ServiceSelector({
   const [selectedService, setSelectedService] = useState(null);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [appointmentData, setAppointmentData] = useState(null);
+  const [isBookingAppointment, setIsBookingAppointment] = useState(false);
 
   const uniqueBarbers = {};
 
@@ -105,7 +107,6 @@ export default function ServiceSelector({
     setAppointmentData(null);
   };
 
-
   const handleBookService = (service) => {
     // Add your booking logic here
     const availableCombinations = getAvailableCombinations(
@@ -146,40 +147,44 @@ export default function ServiceSelector({
     setShowRegisterModal(true);
   };
 
-  const handleLoggedInReservation = (appointmentData, userId) => {
-    createUserAppointment(userId, appointmentData)
-      .then((result) => {
-        if (result.error) {
-          alert("Error creating appointment: " + result.error);
-        } else {
-          // Get barber name from the selected barber option or appointment data
-          const barberName =
-            selectedBarberOption?.value === 0
-              ? uniqueBarbers[appointmentData.selectedBarberId] || "Your Barber"
-              : selectedBarberOption?.label || "Your Barber";
+  const handleLoggedInReservation = async (appointmentData, userId) => {
+    setIsBookingAppointment(true); // Start loading
 
-          // Create query parameters for success page
-          const searchParams = new URLSearchParams({
-            date: appointmentData.date,
-            time: appointmentData.from,
-            barberId: appointmentData.selectedBarberId.toString(),
-            barberName: barberName,
-            serviceName: selectedService?.name || "Service",
-            duration: selectedService?.duration_minutes?.toString() || "30",
-            customerName: session?.user?.name || "Customer",
-          });
+    try {
+      const result = await createUserAppointment(userId, appointmentData);
 
-          console.log(
-            "Redirecting to success with params:",
-            searchParams.toString()
-          );
-          router.push(`/success?${searchParams.toString()}`);
-        }
-      })
-      .catch((error) => {
-        console.error("Error in handleLoggedInReservation:", error);
-        alert("Error creating appointment: " + error.message);
-      });
+      if (result.error) {
+        alert("Error creating appointment: " + result.error);
+      } else {
+        // Get barber name from the selected barber option or appointment data
+        const barberName =
+          selectedBarberOption?.value === 0
+            ? uniqueBarbers[appointmentData.selectedBarberId] || "Your Barber"
+            : selectedBarberOption?.label || "Your Barber";
+
+        // Create query parameters for success page
+        const searchParams = new URLSearchParams({
+          date: appointmentData.date,
+          time: appointmentData.from,
+          barberId: appointmentData.selectedBarberId.toString(),
+          barberName: barberName,
+          serviceName: selectedService?.name || "Service",
+          duration: selectedService?.duration_minutes?.toString() || "30",
+          customerName: session?.user?.name || "Customer",
+        });
+
+        console.log(
+          "Redirecting to success with params:",
+          searchParams.toString()
+        );
+        router.push(`/success?${searchParams.toString()}`);
+      }
+    } catch (error) {
+      console.error("Error in handleLoggedInReservation:", error);
+      alert("Error creating appointment: " + error.message);
+    } finally {
+      setIsBookingAppointment(false); // Stop loading
+    }
   };
 
   const handleCloseCalendar = () => {
@@ -327,16 +332,18 @@ export default function ServiceSelector({
           onClose={() => setShowRegisterModal(false)}
         />
       )}
-      {session?.user.role !=='barber' && appointmentData && (
-        <div>
-          <button
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            onClick={() =>
-              handleLoggedInReservation(appointmentData, session.user.id)
-            }
+      {session?.user.role === 'customer' && appointmentData && (
+        <div className="mt-6">
+          <Button
+            onClick={() => handleLoggedInReservation(appointmentData, session.user.id)}
+            color="primary"
+            size="large"
+            isLoading={isBookingAppointment}
+            disabled={isBookingAppointment}
+            className="w-full"
           >
-            Book Appointment
-          </button>
+            {isBookingAppointment ? "Booking Appointment..." : "Book Appointment"}
+          </Button>
         </div>
       )}
       {session?.user.role === "barber" && (
