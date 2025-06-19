@@ -28,7 +28,7 @@ export default function RegisterLoginModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 p-4" // Changed from bg-opacity-50 to bg-opacity-30
+        className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
         onClick={handleClose}
       >
         <motion.div
@@ -38,7 +38,6 @@ export default function RegisterLoginModal({
           className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Modal Header */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-white">
               {authMode === 'login' ? 'Login Required' : 'Create Account'}
@@ -52,7 +51,6 @@ export default function RegisterLoginModal({
             </button>
           </div>
 
-          {/* Auth Form Content */}
           <div className="space-y-4">
             {authMode === 'login' ? (
               <>
@@ -77,7 +75,7 @@ export default function RegisterLoginModal({
                 <p className="text-gray-300 mb-4">
                   Create an account to book your appointment.
                 </p>
-                <RegisterForm role="customer" />
+                <RegisterForm role="customer" showLoginLink={false}/>
                 <div className="mt-4 text-center">
                   <p className="text-gray-400 text-sm">
                     Already have an account?{" "}

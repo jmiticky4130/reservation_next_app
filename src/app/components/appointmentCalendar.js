@@ -3,13 +3,13 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDateISO, getWeekDates } from "@/app/util/formatFunctions";
-import { set } from "zod";
 
 export default function AppointmentCalendar({
   availableAppointments,
   selectedService,
   onAppointmentSelect,
   onClose,
+  onCalendarScroll,
   isInline = false, // New prop to determine if it's inline or modal
 }) {
   // Get current week starting from today
@@ -75,6 +75,7 @@ export default function AppointmentCalendar({
   };
 
   const handlePrevWeek = async () => {
+    onCalendarScroll();
     setIsChangingWeek(true);
     setSlideDirection(-1);
     setSelectedAppointment(null);
@@ -91,6 +92,7 @@ export default function AppointmentCalendar({
   };
 
   const handleNextWeek = async () => {
+    onCalendarScroll();
     setIsChangingWeek(true);
     setSlideDirection(1);
     setSelectedAppointment(null);
@@ -175,10 +177,6 @@ export default function AppointmentCalendar({
               <h2 className="text-2xl font-semibold text-gray-800">
                 Available Appointments
               </h2>
-              <p className="text-gray-600 mt-1">
-                {selectedService.name} ({selectedService.duration_minutes}{" "}
-                minutes)
-              </p>
             </div>
             <button
               onClick={onClose}
@@ -222,7 +220,7 @@ export default function AppointmentCalendar({
         <motion.div
           layout
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="p-4"
+          className="p-2"
           style={
             isInline
               ? {}
@@ -267,7 +265,7 @@ export default function AppointmentCalendar({
                     <motion.div
                       key={`${dayString}-${index}`}
                       layout
-                      className={`border rounded-lg p-3 transition-all duration-300 ${
+                      className={`border rounded-lg p-1 transition-all duration-300 ${
                         isCurrentDay
                           ? "bg-blue-50 border-blue-200"
                           : "bg-gray-50 border-gray-200"
@@ -293,7 +291,7 @@ export default function AppointmentCalendar({
                       </div>
 
                       {/* Appointments */}
-                      <motion.div layout className="space-y-1">
+                      <motion.div layout className="space-y-3">
                         <AnimatePresence>
                           {dayAppointments.length > 0 ? (
                             dayAppointments.map(
@@ -317,7 +315,7 @@ export default function AppointmentCalendar({
                                     onClick={() =>
                                       handleAppointmentClick(appointment)
                                     }
-                                    className={`w-full text-xs p-2 rounded transition-all duration-200 text-center relative ${
+                                    className={`w-full text-xs p-3 rounded transition-all duration-200 text-center relative ${
                                       isSelected
                                         ? "bg-blue-600 hover:bg-blue-700 text-white border border-transparent"
                                         : "bg-green-500 hover:bg-green-600 text-white border border-transparent"

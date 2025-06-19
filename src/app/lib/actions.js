@@ -9,12 +9,51 @@ import bcrypt from "bcryptjs";
 import postgres from "postgres";
 import { signIn } from "@/auth";
 import { auth } from "@/auth";
+import nodemailer from "nodemailer";
+
 import {
   groupSlotsByBarberAndDay,
   getAvailableCombinations,
 } from "@/app/util/slotsToAppointments";
 
 const sql = postgres(process.env.DATABASE_URL, { ssl: "verify-full" });
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: process.env.SMTP_SECURE === "true",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+export async function sendVerificationCode(email) {
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
+
+  try {
+    await sql`
+      INSERT INTO email_verification_codes (email, code, expires_at)
+      VALUES (${email}, ${code}, ${expiresAt})
+  `;
+
+    console.log("Sending verification code:", code, "to email:", email);
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: email,
+      subject: "Your verification code",
+      text: `Your verification code is: ${code}`,
+    });
+
+    return { success: true };
+  } catch (error) {
+    return {
+      error: "Failed to send verification code. Please try again later.",
+    };
+  }
+}
 
 export async function userEmailExists(email, role) {
   if (!email) {
@@ -40,7 +79,6 @@ export async function userEmailExists(email, role) {
   return { exists: emailExists[0].exists };
 }
 
-
 export async function registerUser(name, email, password, role) {
   if (!name || !email || !password) {
     return { error: "All fields are required" };
@@ -61,16 +99,13 @@ export async function registerUser(name, email, password, role) {
     let id;
     let newUser;
     if (isBarber) {
-
       await sql.begin(async (sql) => {
         newUser = await sql`
         INSERT INTO barbers (name, email, password_hash, role)
         VALUES (${name}, ${email}, ${hashedPassword}, 'admin')
         RETURNING id`;
       });
-
     } else {
-
       await sql.begin(async (sql) => {
         newUser = await sql`
         INSERT INTO customers (name, email, password_hash)
@@ -86,60 +121,38 @@ export async function registerUser(name, email, password, role) {
   }
 }
 
-function generateTimeSlots(fromTime, toTime) {
-  const slots = [];
-  
-  // Parse time strings (e.g., "09:00" -> { hours: 9, minutes: 0 })
-  const parseTime = (timeStr) => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return { hours, minutes };
-  };
-  
-  // Convert time object to minutes since midnight for easier calculation
-  const timeToMinutes = ({ hours, minutes }) => hours * 60 + minutes;
-  
-  // Convert minutes back to time string
-  const minutesToTimeString = (totalMinutes) => {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-  };
-  
-  const startTime = parseTime(fromTime);
-  const endTime = parseTime(toTime);
-  
-  const startMinutes = timeToMinutes(startTime);
-  const endMinutes = timeToMinutes(endTime);
-  
-  // Generate 15-minute slots
-  for (let currentMinutes = startMinutes; currentMinutes < endMinutes; currentMinutes += 15) {
-    slots.push(minutesToTimeString(currentMinutes));
-  }
-  
-  return slots;
-}
-
 // Updated createUserAppointment function with multiple slot support
 export async function createUserAppointment(userId, appointmentData) {
   try {
     const { selectedBarberId, date, from, to } = appointmentData;
-    
-    console.log("Creating appointment for user:", userId, "on", date, "from", from, "to", to, "barberId:", selectedBarberId);
-    
+
+    console.log(
+      "Creating appointment for user:",
+      userId,
+      "on",
+      date,
+      "from",
+      from,
+      "to",
+      to,
+      "barberId:",
+      selectedBarberId
+    );
+
     // Generate all time slots that need to be updated
     const timeSlots = generateTimeSlots(from, to);
     console.log("Time slots to update:", timeSlots);
-    
+
     if (timeSlots.length === 0) {
       return { error: "Invalid time range - no slots to book" };
     }
-    
+
     // Use transaction to ensure all slots are updated together
     let updatedSlots;
-    
+
     await sql.begin(async (sql) => {
       const results = [];
-      
+
       // Update each time slot
       for (const timeSlot of timeSlots) {
         const result = await sql`
@@ -151,63 +164,110 @@ export async function createUserAppointment(userId, appointmentData) {
             AND customer_id IS NULL
           RETURNING *
         `;
-        
+
         if (result.length === 0) {
-          throw new Error(`Slot ${timeSlot} is not available or already booked`);
+          throw new Error(
+            `Slot ${timeSlot} is not available or already booked`
+          );
         }
-        
+
         results.push(result[0]);
       }
-      
+
       updatedSlots = results;
     });
 
     console.log("Appointment slots updated:", updatedSlots);
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       appointment: updatedSlots,
       slotsCount: timeSlots.length,
-      timeRange: `${from} - ${to}`
+      timeRange: `${from} - ${to}`,
     };
-    
   } catch (error) {
     console.error("Error booking appointment:", error);
-    
+
     // Provide more specific error messages
-    if (error.message.includes('not available')) {
+    if (error.message.includes("not available")) {
       return { error: error.message };
     }
-    
-    return { error: "Failed to book appointment - some slots may not be available" };
+
+    return {
+      error: "Failed to book appointment - some slots may not be available",
+    };
   }
 }
 
-export async function registerAndLogin(name, email, password, role) {
-  // First register the user
-  const result = await registerUser(name, email, password, role);
-  console.log("Registration result:", result);
-  if (result.success) {
-    try {
-      await signIn("credentials", {
-        email,
-        password,
-        role,
-        redirect: false,
-      });
+export async function registerAndLogin(name, email, password, role, code) {
+  try {
+    // First verify the email code
+    const rows = await sql`
+      SELECT * FROM email_verification_codes
+      WHERE email = ${email} AND code = ${code}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
 
-      return { success: true, id: result.id };
-    } catch (error) {
-      console.error("Server-side login error:", error);
-      return {
-        success: true,
-        autoLoginFailed: true,
-        message: "Account created but login failed",
-      };
+    const record = rows[0];
+
+    if (!record) {
+      return { error: "Invalid verification code" };
     }
-  }
 
-  return result;
+    if (new Date() > record.expires_at) {
+      return { error: "Verification code has expired" };
+    }
+
+    // Delete the verification code after successful verification
+    await sql`
+      DELETE FROM email_verification_codes WHERE email = ${email}
+    `;
+
+    // Register the user
+    const result = await registerUser(name, email, password, role);
+    console.log("Registration result:", result);
+
+    if (result.success) {
+      try {
+        await signIn("credentials", {
+          email,
+          password,
+          role,
+          redirect: false,
+        });
+
+        return { success: true, id: result.id };
+      } catch (loginError) {
+        console.error("Server-side login error:", loginError);
+        return {
+          success: true,
+          autoLoginFailed: true,
+          message:
+            "Account created successfully but automatic login failed. Please login manually.",
+        };
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error in registerAndLogin:", error);
+
+    // Handle specific database errors
+    if (error.message.includes("duplicate key value")) {
+      return { error: "Email already exists. Please use a different email." };
+    }
+
+    if (error.message.includes("connection")) {
+      return { error: "Database connection error. Please try again later." };
+    }
+
+    // Generic error for any other issues
+    return {
+      error:
+        "An unexpected error occurred during registration. Please try again.",
+    };
+  }
 }
 
 export async function handleLogin(formData, role) {
@@ -300,4 +360,43 @@ export async function calculateAllAvailableAppointments(
     console.error("Error fetching appointment slots:", error);
     throw new Error("Failed to fetch appointment slots");
   }
+}
+
+function generateTimeSlots(fromTime, toTime) {
+  const slots = [];
+
+  // Parse time strings (e.g., "09:00" -> { hours: 9, minutes: 0 })
+  const parseTime = (timeStr) => {
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    return { hours, minutes };
+  };
+
+  // Convert time object to minutes since midnight for easier calculation
+  const timeToMinutes = ({ hours, minutes }) => hours * 60 + minutes;
+
+  // Convert minutes back to time string
+  const minutesToTimeString = (totalMinutes) => {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}`;
+  };
+
+  const startTime = parseTime(fromTime);
+  const endTime = parseTime(toTime);
+
+  const startMinutes = timeToMinutes(startTime);
+  const endMinutes = timeToMinutes(endTime);
+
+  // Generate 15-minute slots
+  for (
+    let currentMinutes = startMinutes;
+    currentMinutes < endMinutes;
+    currentMinutes += 15
+  ) {
+    slots.push(minutesToTimeString(currentMinutes));
+  }
+
+  return slots;
 }

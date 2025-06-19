@@ -12,7 +12,6 @@ import {
 
 import RegisterLoginModal from "./RegisterLoginModal";
 
-
 export default function ServiceSelector({
   barberServicesPromise,
   slotsPromise,
@@ -105,6 +104,7 @@ export default function ServiceSelector({
     setSelectedService(null);
     setAppointmentData(null);
   };
+
 
   const handleBookService = (service) => {
     // Add your booking logic here
@@ -206,8 +206,8 @@ export default function ServiceSelector({
               <motion.button
                 key={option.value}
                 onClick={() => handleBarberSelect(option)}
-                whileHover={{ scale: 1.07 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.99 }}
                 className={`w-full p-4 text-left rounded-lg border-2 ${
                   selectedBarberOption?.value === option.value
                     ? "border-blue-500 bg-blue-50 text-blue-700"
@@ -311,6 +311,7 @@ export default function ServiceSelector({
             className="mt-8 overflow-hidden"
           >
             <AppointmentCalendar
+              onCalendarScroll={() => setAppointmentData(null)}
               availableAppointments={availableAppointments}
               selectedService={selectedService}
               onAppointmentSelect={handleAppointmentSelect}
@@ -320,13 +321,13 @@ export default function ServiceSelector({
           </motion.div>
         )}
       </AnimatePresence>
-      { !session && (
+      {!session && (
         <RegisterLoginModal
           isOpen={showRegisterModal}
           onClose={() => setShowRegisterModal(false)}
-    />
+        />
       )}
-      { session && appointmentData && (
+      {session?.user.role !=='barber' && appointmentData && (
         <div>
           <button
             className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
@@ -336,6 +337,14 @@ export default function ServiceSelector({
           >
             Book Appointment
           </button>
+        </div>
+      )}
+      {session?.user.role === "barber" && (
+        <div className="mt-6">
+          <p className="w-full py-4 px-4 bg-red-500 text-black rounded-md">
+            Cannot book an appointment as a barber. Please log in as a customer
+            to book appointments.
+          </p>
         </div>
       )}
     </div>

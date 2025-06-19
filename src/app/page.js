@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import { fetchAppointmentSlots } from "@/app/lib/data";
 import { auth, signOut } from "@/auth";
 import Link from "next/link";
-import { redirect } from "next/dist/server/api-utils";
 
 export default async function HomePage() {
   const session = await auth();
@@ -16,7 +15,7 @@ export default async function HomePage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8 text-center text-white">Book Your Appointment</h1>
         
-        {session?.user ? (
+        {session?.user.role ? (
           <div className="mb-6 text-center">
             <div className="flex justify-between items-center mb-4">
               <div></div> {/* Empty div for spacing */}

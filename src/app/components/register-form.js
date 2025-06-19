@@ -1,13 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { registerAndLogin, userEmailExists } from "../lib/actions";
+import {
+  registerAndLogin,
+  sendVerificationCode,
+  userEmailExists,
+} from "../lib/actions";
+import { set } from "zod";
 
-
-export default function RegisterForm({ role }) {
+export default function RegisterForm({ role, showLoginLink = true }) {
   const router = useRouter();
+  const [showVerificationCodeField, setShowVerificationCodeField] =
+    useState(false);
   const [state, formAction, isPending] = useActionState(
     async (prevState, formData) => {
       const name = formData.get("name");
@@ -21,25 +27,39 @@ export default function RegisterForm({ role }) {
 
       const emailCheck = await userEmailExists(email);
 
-      if( emailCheck.exists) {
+      if (emailCheck.exists) {
         return "Email already exists. Please use a different email.";
       }
-      
-      const res = await registerAndLogin(name, email, password, role);
 
-      if (res.error) {
-        return res.error;
-      }
+      if (role === "customer") {
+        if (!showVerificationCodeField) {
+          const res = await sendVerificationCode(email);
+          if (res.success) {
+            setShowVerificationCodeField(true);
+            return "Verification code sent to your email. Please enter it to continue.";
+          }
+        } else {
+          const verificationCode = formData.get("verificationField");
+          if (!verificationCode) {
+            return "Please enter the verification code sent to your email.";
+          }
 
-      if (res.success && role === "barber") {
-        router.push("/barber");
-        return null;
-      } else {
-        router.push("/");
-        return null;
+          const res = await registerAndLogin(
+            name,
+            email,
+            password,
+            role,
+            verificationCode
+          );
+          if (res.error) {
+            return res.error;
+          }
+
+          setShowVerificationCodeField(false);
+          router.push("/");
+        }
       }
-    },
-    null
+    }
   );
 
   return (
@@ -97,7 +117,34 @@ export default function RegisterForm({ role }) {
         />
       </div>
 
-      {state && <div className="text-red-500 text-sm">{state}</div>}
+      {showVerificationCodeField && (
+        <div>
+          <label
+            htmlFor="verificationField"
+            className="block text-sm font-medium"
+          >
+            verificationField
+          </label>
+          <input
+            id="verificationField"
+            name="verificationField"
+            type="text"
+            required
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+          />
+        </div>
+      )}
+
+      {state &&
+        state !==
+          "Verification code sent to your email. Please enter it to continue." && (
+          <div className="text-red-500 text-sm">{state}</div>
+        )}
+      {state &&
+        state ===
+          "Verification code sent to your email. Please enter it to continue." && (
+          <div className="text-green-500 text-sm">{state}</div>
+        )}
 
       <div>
         <button
@@ -109,7 +156,7 @@ export default function RegisterForm({ role }) {
         </button>
       </div>
 
-      {role === "barber" && (
+      {showLoginLink && (
         <div className="text-center text-sm">
           Already have an account?{" "}
           <Link href="/login" className="text-blue-600 hover:underline">
