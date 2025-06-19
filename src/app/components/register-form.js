@@ -8,12 +8,18 @@ import {
   sendVerificationCode,
   userEmailExists,
 } from "../lib/actions";
-import { set } from "zod";
 
 export default function RegisterForm({ role, showLoginLink = true }) {
   const router = useRouter();
   const [showVerificationCodeField, setShowVerificationCodeField] =
     useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
   const [state, formAction, isPending] = useActionState(
     async (prevState, formData) => {
       const name = formData.get("name");
@@ -53,14 +59,23 @@ export default function RegisterForm({ role, showLoginLink = true }) {
           );
           if (res.error) {
             return res.error;
+          } else {
+            setShowVerificationCodeField(false);
+            router.push("/");
           }
-
-          setShowVerificationCodeField(false);
-          router.push("/");
         }
       }
     }
   );
+
+  const handleInputChange = (field, value) => {
+    if (!showVerificationCodeField) {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
+  };
 
   return (
     <form action={formAction} className="space-y-4">
@@ -71,6 +86,8 @@ export default function RegisterForm({ role, showLoginLink = true }) {
         <input
           id="name"
           name="name"
+          onChange={(e) => handleInputChange("name", e.target.value)}
+          value={formData.name}
           type="text"
           required
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
@@ -84,6 +101,8 @@ export default function RegisterForm({ role, showLoginLink = true }) {
         <input
           id="email"
           name="email"
+          onChange={(e) => handleInputChange("email", e.target.value)}
+          value={formData.email}
           type="email"
           required
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
@@ -98,6 +117,8 @@ export default function RegisterForm({ role, showLoginLink = true }) {
           id="password"
           name="password"
           type="password"
+          onChange={(e) => handleInputChange("password", e.target.value)}
+          value={formData.password}
           required
           minLength={6}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
@@ -111,6 +132,8 @@ export default function RegisterForm({ role, showLoginLink = true }) {
         <input
           id="confirmPassword"
           name="confirmPassword"
+          onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+          value={formData.confirmPassword}
           type="password"
           required
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
@@ -125,12 +148,17 @@ export default function RegisterForm({ role, showLoginLink = true }) {
           >
             verificationField
           </label>
+          <p className="text-xs text-gray-400 mb-2">
+            Enter the 6-character code sent to {formData.email}
+          </p>
           <input
             id="verificationField"
             name="verificationField"
             type="text"
+            maxLength={6}
             required
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+            placeholder="XXXXXX"
           />
         </div>
       )}
@@ -152,7 +180,13 @@ export default function RegisterForm({ role, showLoginLink = true }) {
           disabled={isPending}
           className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
         >
-          {isPending ? "Creating Account..." : "Create Account"}
+          {isPending
+            ? showVerificationCodeField
+              ? "Verifying..."
+              : "Sending Code..."
+            : showVerificationCodeField
+            ? "Verify & Create Account"
+            : "Send Verification Code"}
         </button>
       </div>
 
