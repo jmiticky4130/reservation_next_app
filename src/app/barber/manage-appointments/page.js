@@ -63,7 +63,7 @@ export default async function ManageAppointmentsPage() {
             </div>
             <div className="ml-5 w-0 flex-1">
               <dl>
-                <dt className="text-sm font-medium text-gray-400 truncate">Today's Appointments</dt>
+                <dt className="text-sm font-medium text-gray-400 truncate">Today&apos;  s Appointments</dt>
                 <dd className="text-lg font-medium text-gray-200">
                   {appointments.filter(app => {
                     const today = new Date().toISOString().split('T')[0];

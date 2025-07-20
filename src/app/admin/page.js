@@ -20,11 +20,10 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      {/* Today's Appointments */}
       <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 mb-8">
         <div className="px-6 py-4 border-b border-gray-700">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-200">Today's Appointments</h2>
+            <h2 className="text-xl font-semibold text-gray-200">Today&apos;s Appointments</h2>
             <div className="text-sm text-gray-400">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'long',
@@ -114,7 +113,6 @@ export default async function AdminPage() {
         </div>
       </div>
 
-      {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
           <div className="flex items-center">
@@ -127,7 +125,7 @@ export default async function AdminPage() {
             </div>
             <div className="ml-5 w-0 flex-1">
               <dl>
-                <dt className="text-sm font-medium text-gray-400 truncate">Today's Appointments</dt>
+                <dt className="text-sm font-medium text-gray-400 truncate">Today&apos;s Appointments</dt>
                 <dd className="text-lg font-medium text-gray-200">{todaysAppointments.length}</dd>
               </dl>
             </div>
@@ -148,45 +146,6 @@ export default async function AdminPage() {
                 <dt className="text-sm font-medium text-gray-400 truncate">Active Barbers</dt>
                 <dd className="text-lg font-medium text-gray-200">
                   {new Set(todaysAppointments.map(app => app.barber_name)).size}
-                </dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-purple-900 rounded-md flex items-center justify-center">
-                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-gray-400 truncate">Earliest Appointment</dt>
-                <dd className="text-lg font-medium text-gray-200">
-                  
-                </dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-orange-900 rounded-md flex items-center justify-center">
-                <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-gray-400 truncate">Latest Appointment</dt>
-                <dd className="text-lg font-medium text-gray-200">
                 </dd>
               </dl>
             </div>

@@ -8,7 +8,7 @@ export default function CreateBarberPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-200">Create New Barber</h1>
             <p className="text-gray-400 mt-2">
-              Add a new barber to your team. They'll be able to log in and manage their own schedule.
+              Add a new barber to your team. They&apos;ll be able to log in and manage their own schedule.
             </p>
           </div>
         </div>

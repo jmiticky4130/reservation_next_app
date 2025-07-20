@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { cancelAppointmentWithToken } from "@/app/lib/actions";
 import Button from "./buttonfm";
+import Link from "next/link";
 
 export default function CancelAppointmentForm({ token }) {
   const [status, setStatus] = useState('idle'); // idle, loading, success, error
@@ -51,12 +52,12 @@ export default function CancelAppointmentForm({ token }) {
             </div>
           )}
           
-          <a
+          <Link
             href="/"
             className="inline-block bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
           >
             Back to Home
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -73,12 +74,12 @@ export default function CancelAppointmentForm({ token }) {
           </div>
           <h1 className="text-2xl font-bold text-red-400 mb-4">Cancellation Failed</h1>
           <p className="text-gray-300 mb-6">{message}</p>
-          <a
+          <Link
             href="/"
             className="inline-block bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
           >
             Back to Home
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -104,12 +105,12 @@ export default function CancelAppointmentForm({ token }) {
             {status === 'loading' ? 'Cancelling...' : 'Yes, Cancel Appointment'}
           </Button>
           
-          <a
+          <Link
             href="/"
             className="block w-full py-2.5 px-4 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-center"
           >
             Keep Appointment
-          </a>
+          </Link>
         </div>
       </div>
     </div>
