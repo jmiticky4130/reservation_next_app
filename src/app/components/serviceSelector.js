@@ -107,19 +107,37 @@ export default function ServiceSelector({
     setAppointmentData(null);
   };
 
-  const handleBookService = (service) => {
-    // Add your booking logic here
-    const availableCombinations = getAvailableCombinations(
-      groupedData,
-      selectedBarberOption.value,
-      service.duration_minutes
-    );
-    console.log("Available combinations for booking:", availableCombinations);
+  const handleBookService = async (service) => {
+    try {
+      // Import the action function
+      const { calculateAllAvailableAppointments } = await import(
+        "@/app/lib/actions"
+      );
 
-    // Set state to show appointment calendar
-    setAvailableAppointments(availableCombinations);
-    setSelectedService(service);
-    setShowAppointmentCalendar(true);
+      // Use the server action instead of client-side calculation
+      const availableCombinations = await calculateAllAvailableAppointments(
+        service.duration_minutes,
+        selectedBarberOption.value
+      );
+
+      console.log("Available combinations for booking:", availableCombinations);
+
+      // Set state to show appointment calendar
+      setAvailableAppointments(availableCombinations);
+      setSelectedService(service);
+      setShowAppointmentCalendar(true);
+    } catch (error) {
+      console.error("Error fetching available appointments:", error);
+      // Fallback to client-side calculation if server action fails
+      const availableCombinations = getAvailableCombinations(
+        groupedData,
+        selectedBarberOption.value,
+        service.duration_minutes
+      );
+      setAvailableAppointments(availableCombinations);
+      setSelectedService(service);
+      setShowAppointmentCalendar(true);
+    }
   };
 
   const handleAppointmentSelect = (appointment) => {
@@ -203,7 +221,7 @@ export default function ServiceSelector({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column - Barber Selection */}
         <div className="lg:col-span-1">
-          <h3 className="text-lg font-semibold mb-4 text-gray-700">
+          <h3 className="text-lg font-semibold mb-4 text-gray-200">
             Choose your barber
           </h3>
           <div className="space-y-3">
@@ -215,14 +233,14 @@ export default function ServiceSelector({
                 whileTap={{ scale: 0.99 }}
                 className={`w-full p-4 text-left rounded-lg border-2 ${
                   selectedBarberOption?.value === option.value
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                    ? "border-green-400 bg-gray-600 text-gray-200"
+                    : "border-gray-200 bg-gray-600 text-gray-200 hover:border-gray-300 hover:bg-gray-500"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{option.label}</span>
                   {selectedBarberOption?.value === option.value && (
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-green-400 rounded-full"></div>
                   )}
                 </div>
               </motion.button>
@@ -232,7 +250,7 @@ export default function ServiceSelector({
 
         {/* Right Column - Services */}
         <div className="lg:col-span-2">
-          <h3 className="text-lg font-semibold mb-4 text-gray-700">
+          <h3 className="text-lg font-semibold mb-4 text-gray-200">
             Available Services
           </h3>
           {filteredServices.length === 0 ? (
@@ -251,8 +269,8 @@ export default function ServiceSelector({
                   transition={{ duration: 0.3 }}
                   className={`w-full text-left rounded-lg p-4 border-2 cursor-pointer ${
                     selectedService?.id === service.id
-                      ? "border-blue-500 bg-blue-50 shadow-md"
-                      : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md hover:bg-gray-50"
+                      ? "border-green-400 bg-gray-600 text-gray-200"
+                    : "border-gray-200 bg-gray-600 text-gray-200 hover:border-gray-300 hover:bg-gray-500"
                   }`}
                 >
                   <div className="flex justify-between items-start">
@@ -261,26 +279,26 @@ export default function ServiceSelector({
                         <h4
                           className={`font-semibold text-lg ${
                             selectedService?.id === service.id
-                              ? "text-blue-700"
-                              : "text-gray-700"
+                              ? "text-gray-200"
+                              : "text-gray-300"
                           }`}
                         >
                           {service.name}
                         </h4>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-blue-600">
+                          <span className="font-bold text-gray-200">
                             ${service.price}
                           </span>
                           {selectedService?.id === service.id && (
-                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <div className="w-3 h-3 bg-green-400 rounded-full"></div>
                           )}
                         </div>
                       </div>
                       <p
                         className={`mt-1 ${
                           selectedService?.id === service.id
-                            ? "text-blue-600"
-                            : "text-gray-600"
+                            ? "text-gray-200"
+                              : "text-gray-300"
                         }`}
                       >
                         {service.description}
@@ -289,8 +307,8 @@ export default function ServiceSelector({
                         <span
                           className={`text-sm ${
                             selectedService?.id === service.id
-                              ? "text-blue-500"
-                              : "text-gray-500"
+                              ? "text-gray-200"
+                              : "text-gray-300"
                           }`}
                         >
                           {service.duration_minutes} minutes
@@ -332,17 +350,21 @@ export default function ServiceSelector({
           onClose={() => setShowRegisterModal(false)}
         />
       )}
-      {session?.user.role === 'customer' && appointmentData && (
+      {session?.user.role === "customer" && appointmentData && (
         <div className="mt-6">
           <Button
-            onClick={() => handleLoggedInReservation(appointmentData, session.user.id)}
+            onClick={() =>
+              handleLoggedInReservation(appointmentData, session.user.id)
+            }
             color="primary"
             size="large"
             isLoading={isBookingAppointment}
             disabled={isBookingAppointment}
             className="w-full"
           >
-            {isBookingAppointment ? "Booking Appointment..." : "Book Appointment"}
+            {isBookingAppointment
+              ? "Booking Appointment..."
+              : "Book Appointment"}
           </Button>
         </div>
       )}

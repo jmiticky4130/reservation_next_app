@@ -1,24 +1,24 @@
 const cellVariants = {
-    empty: {
-      backgroundColor: "#FFFFFF",
-      scale: 1,
-      transition: { duration: 0.3 }
-    },
-    available: {
-      backgroundColor: "#E6FFEC", // Light green color
+  empty: {
+    backgroundColor: "#374151", // gray-700
+    scale: 1,
+    transition: { duration: 0.2 }
+  },
+  available: {
+    backgroundColor: "#14532d", // green-900
+    scale: 1,
+    transition: { duration: 0.2 }
+  },
+  booked: {
+    backgroundColor: "#7f1d1d", // red-900
+    scale: 1,
+    transition: { duration: 0.2 }
+  },
+  selected: {
+    backgroundColor: "#1e3a8a", // blue-800
+    scale: 0.95,
+    transition: { duration: 0.1 }
+  }
+};
 
-      transition: { duration: 0.4 }
-    },
-    booked: {
-      backgroundColor: "#FFEBEB", // Light red color
-      scale: 1,
-      transition: { duration: 0.3 }
-    },
-    selected: {
-      backgroundColor: "#BFDBFE", // Light blue color
-      scale: 1,
-      transition: { duration: 0.2 }
-    }
-    };
-    
-  export default cellVariants;
+export default cellVariants;

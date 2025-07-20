@@ -36,7 +36,7 @@ export default async function HomePage() {
             </div>
           )}
 
-          <div className="bg-gray-300 rounded-lg shadow-lg p-6 border border-gray-700">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
             <Suspense fallback={
               <div className="text-center text-gray-400">Loading...</div>
             }>

@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   registerAndLogin,
-  sendVerificationCode,
   userEmailExists,
 } from "../lib/actions";
+
+import { sendVerificationCode } from "../lib/emails";
 
 export default function RegisterForm({ role, showLoginLink = true }) {
   const router = useRouter();
   const [showVerificationCodeField, setShowVerificationCodeField] =
     useState(false);
+    
   const [formData, setFormData] = useState({
     name: "",
     email: "",

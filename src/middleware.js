@@ -10,7 +10,7 @@ export default auth((req) => {
   const session = req.auth;
   
   // Public paths that don't require authentication
-  const publicPaths = ['/login', '/register', '/'];
+  const publicPaths = ['/login', '/register', '/', '/cancel-appointment'];
   if (publicPaths.includes(pathname)) {
     return NextResponse.next();
   }
@@ -21,23 +21,25 @@ export default auth((req) => {
     if (pathname.startsWith('/barber')) {
       return NextResponse.redirect(new URL('/login?role=barber', req.url));
     }
+ 
     return NextResponse.redirect(new URL('/login', req.url));
   }
   
-  // Role-based route protection
+  // Admin route protection - must be first to check
+  if (pathname.startsWith('/admin')) {
+    // Only users with isAdmin: true can access admin routes
+    if (!session.user.isAdmin) {
+      return NextResponse.redirect(new URL('/', req.url));
+    }
+  }
+  
+  // Role-based route protection for barbers
   if (pathname.startsWith('/barber')) {
     // Only barbers can access barber routes
     if (session.user.role !== 'barber') {
       return NextResponse.redirect(new URL('/', req.url));
     }
   }
-  
-  // Future: Add customer-only routes if needed
-  // if (pathname.startsWith('/customer')) {
-  //   if (session.user.role !== 'customer') {
-  //     return NextResponse.redirect(new URL('/', req.url));
-  //   }
-  // }
   
   return NextResponse.next();
 });

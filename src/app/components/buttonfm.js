@@ -1,5 +1,4 @@
 "use client";
-import React from "react";
 import { motion } from "framer-motion";
 
 const Button = ({
@@ -13,7 +12,7 @@ const Button = ({
   className = "",
   ...props
 }) => {
-  // Color variants
+  
   const colorVariants = {
     primary: "bg-blue-600 hover:bg-blue-700 text-white",
     secondary: "bg-gray-600 hover:bg-gray-700 text-white",
@@ -23,14 +22,12 @@ const Button = ({
     "danger-gradient": "bg-gradient-to-br from-red-500 to-red-600 text-white",
   };
 
-  // Size variants
   const sizeVariants = {
-    small: "px-3 py-1.5 text-sm",
+    small: "px-2 py-1 text-2sm",
     medium: "px-4 py-2 text-base",
     large: "px-5 py-2.5 text-lg",
   };
 
-  // Loading spinner
   const Spinner = () => (
     <svg
       className="animate-spin h-4 w-4 text-current"

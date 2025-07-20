@@ -30,7 +30,7 @@ const authOptions = {
 
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
-          actor.password_hash // Assuming your DB field is named password_hash
+          actor.password_hash 
         );
       
         if (!isPasswordValid) {
@@ -40,7 +40,8 @@ const authOptions = {
               id: actor.id,
               name: actor.name,
               email: actor.email,
-              role: credentials.role
+              role: credentials.role,
+              isAdmin: actor.isadmin || false,
             }
          
       },
@@ -51,6 +52,7 @@ const authOptions = {
       if (user) {
         token.userId = user.id;
         token.role   = user.role;
+        token.isAdmin = user.isAdmin || false;
       }
       return token;
     },
@@ -59,6 +61,7 @@ const authOptions = {
       if (session.user) {
         session.user.id   = token.userId;
         session.user.role = token.role;
+        session.user.isAdmin = token.isAdmin || false;
       }
       return session;
     },

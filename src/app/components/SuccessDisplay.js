@@ -1,31 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { formatDateISO, formatTimeDisplay } from "@/app/util/formatFunctions";
+import { formatTimeDisplay } from "@/app/util/formatFunctions";
 
 export default function SuccessDisplay({ appointmentDetails }) {
-  const router = useRouter();
-  const [countdown, setCountdown] = useState(10);
-
-  // Auto redirect countdown
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          // Use setTimeout to defer the navigation to the next tick
-          setTimeout(() => {
-            router.push('/');
-          }, 0);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [router]);
-
+    
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -33,13 +11,13 @@ export default function SuccessDisplay({ appointmentDetails }) {
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
-      day: 'numeric' 
+      day: 'numeric'
     });
   };
 
   const formatTime = (timeString) => {
     if (!timeString) return 'N/A';
-    return formatTimeDisplay(timeString); // Uses military time format from utils
+    return formatTimeDisplay(timeString);
   };
 
   return (
@@ -67,7 +45,7 @@ export default function SuccessDisplay({ appointmentDetails }) {
         </h1>
         
         <p className="text-gray-300">
-          Your appointment has been successfully created.
+          An email has been sent to the customer.
         </p>
       </div>
 
@@ -130,30 +108,6 @@ export default function SuccessDisplay({ appointmentDetails }) {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="space-y-3">
-        <button
-          onClick={() => router.push('/')}
-          className="w-full py-3 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-        >
-          Book Another Appointment
-        </button>
-        
-        <button
-          onClick={() => router.push('/appointments')}
-          className="w-full py-2 px-4 border border-gray-600 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition-colors"
-        >
-          View My Appointments
-        </button>
-      </div>
-
-      {/* Auto Redirect Notice */}
-      <div className="mt-6 text-center">
-        <p className="text-xs text-gray-500">
-          Automatically redirecting to home in {countdown} seconds
-        </p>
       </div>
     </div>
   );

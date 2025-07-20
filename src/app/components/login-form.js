@@ -2,11 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { handleLogin } from "../lib/actions";
 
-export default function LoginForm({ role, showRoleSwitch = true, showRegisterLink = true }) {
+export default function LoginForm({
+  role,
+  showRoleSwitch = true,
+  showRegisterLink = true,
+}) {
   const router = useRouter();
+  const [credentials, setCredentials] = useState({
+    email: "",
+    password: "",
+  });
 
   // Use useActionState hook for form submission
   const [state, formAction, isPending] = useActionState(
@@ -41,15 +49,17 @@ export default function LoginForm({ role, showRoleSwitch = true, showRegisterLin
   return (
     <div>
       {/* Role Switch Button */}
-      {showRoleSwitch && (<div className="mb-4">
-        <button
-          type="button"
-          onClick={handleRoleSwitch}
-          className="w-full py-2 px-4 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-sm"
-        >
-          Login as {role === "customer" ? "Barber" : "Customer"}
-        </button>
-      </div>)}
+      {showRoleSwitch && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={handleRoleSwitch}
+            className="w-full py-2 px-4 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-sm"
+          >
+            Login as {role === "customer" ? "Barber" : "Customer"}
+          </button>
+        </div>
+      )}
 
       <form action={formAction} className="space-y-4">
         <div>
@@ -57,6 +67,10 @@ export default function LoginForm({ role, showRoleSwitch = true, showRegisterLin
             Email
           </label>
           <input
+            onChange={(e) =>
+              setCredentials({ ...credentials, email: e.target.value })
+            }
+            value={credentials.email}
             id="email"
             name="email"
             type="email"
@@ -71,6 +85,10 @@ export default function LoginForm({ role, showRoleSwitch = true, showRegisterLin
             Password
           </label>
           <input
+            onChange={(e) =>
+              setCredentials({ ...credentials, password: e.target.value })
+            }
+            value={credentials.password}
             id="password"
             name="password"
             type="password"
@@ -94,18 +112,20 @@ export default function LoginForm({ role, showRoleSwitch = true, showRegisterLin
           </button>
         </div>
 
-        {showRegisterLink && (<div className="text-center text-sm">
-          Don&apos;t have an account?{" "}
-          <Link
-            href={`/register?role=${role}`}
-            className="text-blue-600 hover:underline"
-            onClick={() =>
-              console.log(`Navigating to: /register-user?role=${role}`)
-            }
-          >
-            Create an account
-          </Link>
-        </div>)}
+        {showRegisterLink && (
+          <div className="text-center text-sm">
+            Don&apos;t have an account?{" "}
+            <Link
+              href={`/register?role=${role}`}
+              className="text-blue-600 hover:underline"
+              onClick={() =>
+                console.log(`Navigating to: /register-user?role=${role}`)
+              }
+            >
+              Create an account
+            </Link>
+          </div>
+        )}
       </form>
     </div>
   );

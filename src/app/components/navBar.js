@@ -38,13 +38,7 @@ export default function Navigation({ session }) {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m-6-8h1m4 0h1M12 12a4 4 0 11-8 0 4 4 0 01 8 0z"
-                    />
+                  > 
                   </svg>
                 </div>
                 <h1 className="text-xl font-bold text-white">BarberShop</h1>
@@ -54,8 +48,8 @@ export default function Navigation({ session }) {
 
           <div className="flex items-center space-x-4">
             {session?.user ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-300 text-sm">
+              <div className="flex items-center space-x-4 ">
+                <span className="text-gray-300 text-sm sm: ml-3 text-2sm">
                   Signed in as: {session.user.name}
                 </span>
                 <Button

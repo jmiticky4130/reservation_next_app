@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";;
+import React, { useState, useEffect } from "react";
 import {
   formatDateISO,
   formatTimeDisplay,
@@ -23,7 +23,6 @@ export default function Calendar({
   initialAppointmentSlots,
   barberId,
 }) {
-
   const [currentWeekStart, setCurrentWeekStart] = useState(initialWeekDates[0]);
   const [weekDates, setWeekDates] = useState(initialWeekDates);
   const [appointmentSlots, setAppointmentSlots] = useState(
@@ -69,6 +68,7 @@ export default function Calendar({
     });
     setAvailabilityMap(map);
   }, [weekDates, appointmentSlots, timeSlots]);
+
   const handleTimeRowClick = (time) => {
     const newSelectedSlots = new Set(selectedSlots);
 
@@ -117,6 +117,7 @@ export default function Calendar({
 
     setSelectedSlots(newSelectedSlots);
   };
+
   // Navigation functions
   const navigateWeek = async (direction) => {
     const newDate = new Date(currentWeekStart);
@@ -143,7 +144,6 @@ export default function Calendar({
 
       // Update appointment slots state
       setAppointmentSlots(newSlots);
-
     } catch (error) {
       console.error("Failed to fetch appointments for new week:", error);
       alert("Failed to load appointments for the selected week.");
@@ -161,6 +161,7 @@ export default function Calendar({
       setBookedAlert(false);
     }, 3000); // Hide alert after 3 seconds
   };
+
   // Handle click on a time slot
   const handleSlotClick = (dateStr, time) => {
     // Create unique identifier for this slot
@@ -251,13 +252,13 @@ export default function Calendar({
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Your Weekly Schedule</h1>
+      <h1 className="text-4xl font-bold mb-6 text-gray-200 ">Calendar</h1>
 
       {/* Week navigation with loading state */}
-      <div className="flex justify-between items-center mb-4 bg-gradient-to-r from-gray-50 to-blue-50 p-3 rounded-lg border border-gray-200 shadow-sm">
+      <div className="flex justify-between items-center mb-4 bg-gray-800 p-3 rounded-lg border border-gray-700 shadow-sm">
         <Button
           color="secondary"
-          size="medium"
+          size="small"
           onClick={() => navigateWeek(-1)}
           disabled={isLoading}
           isLoading={isLoading}
@@ -265,9 +266,9 @@ export default function Calendar({
           Previous Week
         </Button>
 
-        <div className="font-medium flex flex-col items-center">
+        <div className="font-medium flex flex-col items-center sm: text-sm ml-6">
           {weekDates.length > 0 && (
-            <span className="text-gray-800">
+            <span className="text-gray-200">
               {weekDates[0].toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -280,12 +281,11 @@ export default function Calendar({
               })}
             </span>
           )}
-        
         </div>
 
         <Button
           color="primary-gradient"
-          size="medium"
+          size="small"
           onClick={() => navigateWeek(1)}
           disabled={isLoading}
           isLoading={isLoading}
@@ -295,20 +295,20 @@ export default function Calendar({
       </div>
 
       {/* Calendar grid */}
-      <div className="overflow-x-auto relative border border-gray-300 rounded-lg">
+      <div className="overflow-x-auto relative border border-gray-600 rounded-lg bg-gray-800">
         <div className="grid grid-cols-[70px_repeat(7,minmax(100px,1fr))]">
           {/* Header Row: Empty corner + Days */}
-          <div className="sticky top-0 left-0 z-20 bg-gray-100 border-b border-r border-gray-300"></div>
+          <div className="sticky top-0 left-0 z-20 bg-gray-700 border-b border-r border-gray-600"></div>
           {weekDates.map((date) => (
             <div
               key={date.toISOString()}
-              className="sticky top-0 z-10 bg-gray-100 p-2 text-center text-black font-semibold border-b border-r border-gray-300 last:border-r-0 cursor-pointer hover:bg-gray-200"
+              className="sticky top-0 z-10 bg-gray-700 p-2 text-center text-gray-200 font-semibold border-b border-r border-gray-600 last:border-r-0 cursor-pointer hover:bg-gray-600 transition-colors"
               onClick={() => handleDayColumnClick(date)}
             >
               <div>
                 {date.toLocaleDateString("en-US", { weekday: "short" })}
               </div>
-              <div className="text-xs font-normal">
+              <div className="text-xs font-normal text-gray-400">
                 {date.toLocaleDateString("en-US", {
                   month: "numeric",
                   day: "numeric",
@@ -322,7 +322,7 @@ export default function Calendar({
             <React.Fragment key={time}>
               {/* Time Label Column */}
               <div
-                className="sticky left-0 z-10 bg-gray-50 p-1 text-center text-xs text-black font-medium border-r border-b border-gray-300 flex items-center justify-center cursor-pointer hover:bg-gray-200"
+                className="sticky left-0 z-10 bg-gray-700 p-1 text-center text-xs text-gray-200 font-medium border-r border-b border-gray-600 flex items-center justify-center cursor-pointer hover:bg-gray-600 transition-colors"
                 onClick={() => handleTimeRowClick(time)}
               >
                 {formatTimeDisplay(time)}
@@ -347,7 +347,13 @@ export default function Calendar({
                 return (
                   <motion.div
                     key={`${dateStr}-${time}`}
-                    className={`h-8 border-b border-r border-gray-200 last:border-r-0 flex items-center justify-center cursor-pointer`}
+                    className={`h-8 border-b border-r border-gray-600 last:border-r-0 flex items-center justify-center cursor-pointer ${
+                      cellInfo.status === "empty"
+                        ? "bg-gray-750 hover:bg-gray-700"
+                        : cellInfo.status === "available"
+                        ? "bg-green-900 hover:bg-green-800"
+                        : "bg-red-900 hover:bg-red-800"
+                    }`}
                     onClick={() => handleSlotClick(dateStr, time)}
                     title={`Click to select ${formatTimeDisplay(
                       time
@@ -361,7 +367,7 @@ export default function Calendar({
                       {cellInfo.status === "available" && (
                         <motion.span
                           key="available"
-                          className="text-xs text-green-800 font-medium"
+                          className="text-xs text-green-300 font-medium"
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
@@ -372,7 +378,7 @@ export default function Calendar({
                       {cellInfo.status === "booked" && (
                         <motion.span
                           key="booked"
-                          className="text-xs text-red-800 font-medium"
+                          className="text-xs text-red-300 font-medium"
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
@@ -383,7 +389,7 @@ export default function Calendar({
                       {slotSelected && cellInfo.status === "empty" && (
                         <motion.span
                           key="selected-dot"
-                          className="h-2 w-2 rounded-full bg-blue-500"
+                          className="h-2 w-2 rounded-full bg-blue-400"
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           exit={{ scale: 0 }}
@@ -399,13 +405,13 @@ export default function Calendar({
       </div>
 
       {/* Action buttons for selected slots */}
-      <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg shadow-sm">
+      <div className="mb-6 p-4 bg-gray-800 border border-gray-700 rounded-lg shadow-sm">
         <div className="flex items-center mb-4">
-          <div className="bg-white px-3 py-1.5 rounded-full shadow-sm border border-blue-200 flex items-center">
-            <span className="text-lg font-medium text-blue-700">
+          <div className="bg-gray-700 px-3 py-1.5 rounded-full shadow-sm border border-gray-600 flex items-center">
+            <span className="text-lg font-medium text-blue-400">
               {selectedSlots.size}
             </span>
-            <span className="ml-2 text-sm text-gray-600">
+            <span className="ml-2 text-sm text-gray-300">
               time slot{selectedSlots.size !== 1 ? "s" : ""} selected
             </span>
           </div>
@@ -487,6 +493,7 @@ export default function Calendar({
           </Button>
         </div>
       </div>
+
       <AnimatePresence>
         {bookedAlert && (
           <motion.div
@@ -495,14 +502,15 @@ export default function Calendar({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="mb-4 p-2 bg-red-50 border border-red-500 rounded-md"
+            className="mb-4 p-2 bg-red-900 border border-red-600 rounded-md"
           >
-            <p className="mb-2 text-black">You cannot remove booked slots.</p>
+            <p className="mb-2 text-red-300">You cannot remove booked slots.</p>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <BulkScheduler barberId={barberId}></BulkScheduler>
+      <div suppressHydrationWarning>
+        <BulkScheduler barberId={barberId}></BulkScheduler>
+      </div>
     </div>
   );
 }

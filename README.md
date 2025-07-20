@@ -43,3 +43,4 @@ need to add an authentification for the user - need to connect it with the click
 
 need to create a page for the user login and signin like the one for barber
 delete barber registration - this is for the admin to deal with 
+when barber 1 is selected oonly 2 services, when any barber barber 1 has 3 services- FIX

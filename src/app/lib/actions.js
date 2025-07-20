@@ -1,54 +1,42 @@
 "use server";
 // NEED TO ADD ZOD VALIDATION
-// NEED TO ADD ZOD VALIDATION
-// NEED TO ADD ZOD VALIDATION
-// NEED TO ADD ZOD VALIDATION
-// NEED TO ADD ZOD VALIDATION
-// NEED TO ADD ZOD VALIDATION
 import bcrypt from "bcryptjs";
 import postgres from "postgres";
 import { signIn } from "@/auth";
 import { auth } from "@/auth";
-import nodemailer from "nodemailer";
-
+import {
+  sendVerificationCode,
+  sendBarberNotification,
+  sendCustomerConfirmation,
+  sendBarberCancellationNotification,
+  sendCustomerCancellationNotification
+} from "@/app/lib/emails";
 import {
   groupSlotsByBarberAndDay,
   getAvailableCombinations,
 } from "@/app/util/slotsToAppointments";
+import { revalidatePath } from "next/cache";
 
 const sql = postgres(process.env.DATABASE_URL, { ssl: "verify-full" });
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === "true",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-export async function sendVerificationCode(email) {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
-
+export async function sendVerificationCodeAction(email) {
   try {
-    await sql`
-      INSERT INTO email_verification_codes (email, code, expires_at)
-      VALUES (${email}, ${code}, ${expiresAt})
-  `;
+    const result = await sendVerificationCode(email);
+    
+    if (result.success) {
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiration
 
-    console.log("Sending verification code:", code, "to email:", email);
-    await transporter.sendMail({
-      from: process.env.SMTP_USER,
-      to: email,
-      subject: "Your verification code",
-      text: `Your verification code is: ${code}`,
-    });
+      await sql`
+        INSERT INTO email_verification_codes (email, code, expires_at)
+        VALUES (${email}, ${result.code}, ${expiresAt})
+      `;
 
-    return { success: true };
+      return { success: true };
+    }
+
+    return result;
   } catch (error) {
+    console.error("Error in sendVerificationCodeAction:", error);
     return {
       error: "Failed to send verification code. Please try again later.",
     };
@@ -121,23 +109,9 @@ export async function registerUser(name, email, password, role) {
   }
 }
 
-// Updated createUserAppointment function with multiple slot support
 export async function createUserAppointment(userId, appointmentData) {
   try {
     const { selectedBarberId, date, from, to } = appointmentData;
-
-    console.log(
-      "Creating appointment for user:",
-      userId,
-      "on",
-      date,
-      "from",
-      from,
-      "to",
-      to,
-      "barberId:",
-      selectedBarberId
-    );
 
     // Generate all time slots that need to be updated
     const timeSlots = generateTimeSlots(from, to);
@@ -147,8 +121,9 @@ export async function createUserAppointment(userId, appointmentData) {
       return { error: "Invalid time range - no slots to book" };
     }
 
-    // Use transaction to ensure all slots are updated together
     let updatedSlots;
+    let customerInfo;
+    let barberInfo;
 
     await sql.begin(async (sql) => {
       const results = [];
@@ -174,8 +149,54 @@ export async function createUserAppointment(userId, appointmentData) {
         results.push(result[0]);
       }
 
+      // Get customer information for the email
+      const customerResult = await sql`
+        SELECT id, name, email FROM customers WHERE id = ${userId}
+      `;
+
+      // Get barber information for the email
+      const barberResult = await sql`
+        SELECT id, name, email FROM barbers WHERE id = ${selectedBarberId}
+      `;
+
+      if (customerResult.length === 0 || barberResult.length === 0) {
+        throw new Error("Customer or barber not found");
+      }
+
       updatedSlots = results;
+      customerInfo = customerResult[0];
+      barberInfo = barberResult[0];
     });
+
+    // Send both email notifications AFTER successful database transaction
+    const appointmentDetails = {
+      date,
+      timeRange: `${from} - ${to}`,
+      slotsCount: timeSlots.length,
+      timeSlots,
+    };
+
+    try {
+      // Send notification to barber
+      await sendBarberNotification({
+        barber: barberInfo,
+        customer: customerInfo,
+        appointmentDetails,
+      });
+      console.log("Barber notification sent successfully");
+
+      // Send confirmation to customer - pass sql for database operations
+      await sendCustomerConfirmation({
+        customer: customerInfo,
+        barber: barberInfo,
+        appointmentDetails,
+        sql, // Pass sql connection
+      });
+      console.log("Customer confirmation sent successfully");
+
+    } catch (emailError) {
+      console.error("Failed to send email notifications:", emailError);
+    }
 
     console.log("Appointment slots updated:", updatedSlots);
 
@@ -352,9 +373,42 @@ export async function calculateAllAvailableAppointments(
   barberId = 0
 ) {
   try {
-    const startDate = new Date();
+    let slots;
+    
+    if (barberId === 0) {
+      slots = await sql`
+        SELECT DISTINCT
+          s.day, 
+          s.barber_id, 
+          s.start_time
+        FROM appointment_slots s
+        JOIN barbers b ON b.id = s.barber_id
+        JOIN barber_services bs ON bs.barber_id = s.barber_id
+        JOIN services srv ON srv.id = bs.service_id
+        WHERE s.customer_id IS NULL
+          AND s.day >= CURRENT_DATE
+          AND srv.duration_minutes = ${actionMinutes}
+        ORDER BY s.day, s.barber_id, s.start_time
+      `;
+    } else {
+      slots = await sql`
+        SELECT s.day, s.barber_id, s.start_time
+        FROM appointment_slots s
+        WHERE s.customer_id IS NULL
+          AND s.day >= CURRENT_DATE
+          AND s.barber_id = ${barberId}
+        ORDER BY s.day, s.barber_id, s.start_time
+      `;
+    }
 
-    const groupedData = groupSlotsByBarberAndDay(slots);
+    // Convert database results to proper format
+    const formattedSlots = slots.map(slot => ({
+      day: slot.day.toISOString().split('T')[0], // Convert to YYYY-MM-DD
+      barber_id: slot.barber_id,
+      start_time: slot.start_time
+    }));
+
+    const groupedData = groupSlotsByBarberAndDay(formattedSlots);
     return getAvailableCombinations(groupedData, barberId, actionMinutes);
   } catch (error) {
     console.error("Error fetching appointment slots:", error);
@@ -399,4 +453,401 @@ function generateTimeSlots(fromTime, toTime) {
   }
 
   return slots;
+}
+
+export async function cancelAppointmentWithToken(token) {
+  try {
+    // Verify the token and get appointment details
+    const tokenResult = await sql`
+      SELECT act.*, c.name as customer_name, c.email as customer_email
+      FROM appointment_cancellation_tokens act
+      JOIN customers c ON c.id = act.customer_id
+      WHERE act.token = ${token} 
+        AND act.used = FALSE 
+        AND act.expires_at > NOW()
+    `;
+
+    if (tokenResult.length === 0) {
+      return { error: "Invalid or expired cancellation link" };
+    }
+
+    const tokenData = tokenResult[0];
+    const { appointment_id, customer_id } = tokenData;
+
+    // Parse appointment ID to get details
+    const [customerId, date, timeRange] = appointment_id.split('_');
+    const [startTime, endTime] = timeRange.split(' - ');
+
+    // Generate time slots to clear
+    const timeSlots = generateTimeSlots(startTime, endTime);
+
+    let barberInfo;
+    let cancelledSlots;
+
+    await sql.begin(async (sql) => {
+      // Clear the appointment slots
+      const results = [];
+      for (const timeSlot of timeSlots) {
+        const result = await sql`
+          UPDATE appointment_slots 
+          SET customer_id = NULL
+          WHERE day = ${date} 
+            AND customer_id = ${customer_id}
+            AND start_time = ${timeSlot}
+          RETURNING *
+        `;
+        results.push(...result);
+      }
+
+      // Get barber info for notification
+      if (results.length > 0) {
+        const barberResult = await sql`
+          SELECT name, email FROM barbers WHERE id = ${results[0].barber_id}
+        `;
+        barberInfo = barberResult[0];
+      }
+
+      // Mark token as used
+      await sql`
+        UPDATE appointment_cancellation_tokens 
+        SET used = TRUE 
+        WHERE token = ${token}
+      `;
+
+      cancelledSlots = results;
+    });
+
+    // Send cancellation notification to barber
+    if (barberInfo && cancelledSlots.length > 0) {
+      try {
+        await sendBarberCancellationNotification({
+          barber: barberInfo,
+          customer: { name: tokenData.customer_name, email: tokenData.customer_email },
+          appointmentDetails: {
+            date,
+            timeRange,
+            slotsCount: timeSlots.length
+          }
+        });
+      } catch (emailError) {
+        console.error("Failed to send cancellation notification:", emailError);
+      }
+    }
+
+    return {
+      success: true,
+      appointmentDetails: {
+        date: new Date(date).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }),
+        timeRange,
+        barberName: barberInfo?.name || 'Unknown'
+      }
+    };
+
+  } catch (error) {
+    console.error("Error cancelling appointment:", error);
+    return { error: "Failed to cancel appointment" };
+  }
+}
+
+export async function createBarber(formData) {
+  const session = await auth();
+  
+  // Only admins can create barbers
+  if (!session?.user?.isAdmin) {
+    return { error: "Unauthorized - Admin access required" };
+  }
+
+  const name = formData.get("name");
+  const email = formData.get("email");
+  const password = formData.get("password");
+
+  // Validation
+  if (!name || !email || !password) {
+    return { error: "All fields are required" };
+  }
+
+  if (password.length < 6) {
+    return { error: "Password must be at least 6 characters" };
+  }
+
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { error: "Please enter a valid email address" };
+  }
+
+  try {
+    // Check if email already exists in barbers table
+    const existingBarber = await sql`
+      SELECT id FROM barbers WHERE email = ${email}
+    `;
+
+    if (existingBarber.length > 0) {
+      return { error: "Email already exists in barbers table" };
+    }
+
+    // Check if email exists in customers table
+    const existingCustomer = await sql`
+      SELECT id FROM customers WHERE email = ${email}
+    `;
+
+    if (existingCustomer.length > 0) {
+      return { error: "Email already exists in customers table" };
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert new barber
+    const result = await sql`
+      INSERT INTO barbers (name, email, password_hash, isadmin)
+      VALUES (${name}, ${email}, ${hashedPassword}, false)
+      RETURNING id, name, email, isadmin
+    `;
+
+    return {
+      success: true,
+      barber: result[0],
+      message: `Barber ${name} created successfully`
+    };
+
+  } catch (error) {
+    console.error("Error creating barber:", error);
+
+    // Handle specific database errors
+    if (error.message.includes("duplicate key")) {
+      if (error.message.includes("name")) {
+        return { error: "Barber name already exists" };
+      }
+      if (error.message.includes("email")) {
+        return { error: "Email already exists" };
+      }
+    }
+
+    return { error: "Failed to create barber. Please try again." };
+  }
+}
+
+export async function deleteBarber(barberId) {
+  const session = await auth();
+
+  if (!session?.user?.isAdmin) {
+    return { error: "Unauthorized - Admin access required" };
+  }
+
+  try{
+    // Check if barber exists
+    const barber = await sql`
+      SELECT id, name FROM barbers WHERE id = ${barberId}
+    `;
+
+    if (barber.length === 0) {
+      return { error: "Barber not found" };
+    }
+
+    // Delete the barber
+    await sql`
+      DELETE FROM barbers WHERE id = ${barberId}
+    `;
+
+    return {
+      success: true,
+      message: `Barber ${barber[0].name} deleted successfully`
+    };
+  } catch (error) {
+    console.error("Error deleting barber:", error);
+    return { error: "Failed to delete barber. Please try again." };
+  }
+}
+
+export async function updateBarberInfo(barberId, updateData) {
+  const session = await auth();
+  
+  if (!session?.user?.isAdmin) {
+    return { error: "Unauthorized - Admin access required" };
+  }
+
+  const { name, email, isadmin } = updateData;
+
+  if (!name || !email) {
+    return { error: "Name and email are required" };
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { error: "Please enter a valid email address" };
+  }
+
+  try {
+    const existingBarber = await sql`
+      SELECT id FROM barbers WHERE email = ${email} AND id != ${barberId}
+    `;
+
+    if (existingBarber.length > 0) {
+      return { error: "Email already exists for another barber" };
+    }
+
+    const existingCustomer = await sql`
+      SELECT id FROM customers WHERE email = ${email}
+    `;
+
+    if (existingCustomer.length > 0) {
+      return { error: "Email already exists in customers table" };
+    }
+
+    // Update barber information
+    const result = await sql`
+      UPDATE barbers 
+      SET name = ${name}, email = ${email}, isadmin = ${isadmin}
+      WHERE id = ${barberId}
+      RETURNING id, name, email, isadmin
+    `;
+
+    if (result.length === 0) {
+      return { error: "Barber not found" };
+    }
+
+    return {
+      success: true,
+      barber: result[0],
+      message: "Barber information updated successfully"
+    };
+
+  } catch (error) {
+    console.error("Error updating barber:", error);
+
+    // Handle specific database errors
+    if (error.message.includes("duplicate key")) {
+      if (error.message.includes("name")) {
+        return { error: "Barber name already exists" };
+      }
+      if (error.message.includes("email")) {
+        return { error: "Email already exists" };
+      }
+    }
+
+    return { error: "Failed to update barber information. Please try again." };
+  }
+}
+
+export async function deleteCustomer(customerId) {
+  const session = await auth();
+
+  if (!session?.user?.isAdmin) {
+    return { error: "Unauthorized - Admin access required" };
+  }
+
+  try {
+    const appointments = await sql`
+      SELECT COUNT(*) as count 
+      FROM appointment_slots 
+      WHERE customer_id = ${customerId}
+    `;
+
+    if (appointments[0].count > 0) {
+      return { error: "Cannot delete customer with existing appointments" };
+    }
+
+    const customer = await sql`
+      SELECT id, name FROM customers WHERE id = ${customerId}
+    `;
+
+    if (customer.length === 0) {
+      return { error: "Customer not found" };
+    }
+
+    await sql`
+      DELETE FROM customers WHERE id = ${customerId}
+    `;
+
+    return {
+      success: true,
+      message: `Customer ${customer[0].name} deleted successfully`
+    };
+  } catch (error) {
+    console.error("Error deleting customer:", error);
+    return { error: "Failed to delete customer. Please try again." };
+  }
+}
+
+export async function cancelBarberAppointment({ barberId, customerId, date, startTime }) {
+  const session = await auth();
+
+  // Check if the logged-in user is the barber or an admin
+  if (!session?.user || (session.user.id !== barberId && !session.user.isAdmin)) {
+    return { error: "Unauthorized - You can only cancel your own appointments" };
+  }
+
+  try {
+    let customerInfo;
+    let barberInfo;
+    let cancelledSlot;
+
+    await sql.begin(async (sql) => {
+      // Get customer and barber information before cancelling
+      const customerResult = await sql`
+        SELECT id, name, email FROM customers WHERE id = ${customerId}
+      `;
+
+      const barberResult = await sql`
+        SELECT id, name, email FROM barbers WHERE id = ${barberId}
+      `;
+
+      if (customerResult.length === 0 || barberResult.length === 0) {
+        throw new Error("Customer or barber not found");
+      }
+
+      // Cancel the appointment (set customer_id to NULL)
+      const result = await sql`
+        UPDATE appointment_slots 
+        SET customer_id = NULL
+        WHERE day = ${date} 
+          AND barber_id = ${barberId}
+          AND customer_id = ${customerId}
+          AND start_time = ${startTime}
+        RETURNING *
+      `;
+
+      if (result.length === 0) {
+        throw new Error("Appointment not found or already cancelled");
+      }
+
+      customerInfo = customerResult[0];
+      barberInfo = barberResult[0];
+      cancelledSlot = result[0];
+    });
+
+    try {
+      await sendCustomerCancellationNotification({
+        customer: customerInfo,
+        barber: barberInfo,
+        appointmentDetails: {
+          date,
+          time: startTime,
+          formattedDate: new Date(date).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+        }
+      });
+    } catch (emailError) {
+      console.error("Failed to send cancellation email to customer:", emailError);
+    }
+
+    return {
+      success: true,
+      message: `Appointment with ${customerInfo.name} has been cancelled successfully`
+    };
+
+  } catch (error) {
+    console.error("Error cancelling appointment:", error);
+    return { error: error.message || "Failed to cancel appointment. Please try again." };
+  }
 }
