@@ -236,3 +236,22 @@ export async function getTodaysAppointments() {
     throw new Error("Failed to fetch today's appointments");
   }
 }
+
+export async function getAllServices() {
+  try {
+    const services = await sql`
+      SELECT 
+        id,
+        name,
+        description,
+        duration_minutes,
+        price
+      FROM services
+      ORDER BY name ASC
+    `;
+    return services || [];
+  } catch (error) {
+    console.error("Database error:", error);
+    throw new Error("Failed to fetch services");
+  }
+}

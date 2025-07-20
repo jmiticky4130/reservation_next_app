@@ -565,6 +565,7 @@ export async function createBarber(formData) {
   const name = formData.get("name");
   const email = formData.get("email");
   const password = formData.get("password");
+  const serviceIds = formData.getAll("services"); // Get all selected service IDs
 
   // Validation
   if (!name || !email || !password) {
@@ -573,6 +574,10 @@ export async function createBarber(formData) {
 
   if (password.length < 6) {
     return { error: "Password must be at least 6 characters" };
+  }
+
+  if (!serviceIds || serviceIds.length === 0) {
+    return { error: "At least one service must be selected" };
   }
 
   // Email validation
@@ -600,20 +605,53 @@ export async function createBarber(formData) {
       return { error: "Email already exists in customers table" };
     }
 
+    // Validate that all service IDs exist
+    const validServices = await sql`
+      SELECT id FROM services WHERE id = ANY(${serviceIds.map(id => parseInt(id))})
+    `;
+
+    if (validServices.length !== serviceIds.length) {
+      return { error: "One or more selected services are invalid" };
+    }
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert new barber
-    const result = await sql`
-      INSERT INTO barbers (name, email, password_hash, isadmin)
-      VALUES (${name}, ${email}, ${hashedPassword}, false)
-      RETURNING id, name, email, isadmin
+    let newBarber;
+
+    // Use transaction to create barber and assign services
+    await sql.begin(async (sql) => {
+      // Insert new barber
+      const barberResult = await sql`
+        INSERT INTO barbers (name, email, password_hash, isadmin)
+        VALUES (${name}, ${email}, ${hashedPassword}, false)
+        RETURNING id, name, email, isadmin
+      `;
+
+      newBarber = barberResult[0];
+
+      // Insert barber-service relationships
+      for (const serviceId of serviceIds) {
+        await sql`
+          INSERT INTO barber_services (barber_id, service_id)
+          VALUES (${newBarber.id}, ${parseInt(serviceId)})
+        `;
+      }
+    });
+
+    // Get service names for confirmation message
+    const assignedServices = await sql`
+      SELECT s.name FROM services s
+      JOIN barber_services bs ON s.id = bs.service_id
+      WHERE bs.barber_id = ${newBarber.id}
     `;
+
+    const serviceNames = assignedServices.map(s => s.name).join(', ');
 
     return {
       success: true,
-      barber: result[0],
-      message: `Barber ${name} created successfully`
+      barber: newBarber,
+      message: `Barber ${name} created successfully with services: ${serviceNames}`
     };
 
   } catch (error) {
