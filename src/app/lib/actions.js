@@ -111,7 +111,21 @@ export async function registerUser(name, email, password, role) {
 
 export async function createUserAppointment(userId, appointmentData) {
   try {
-    const { selectedBarberId, date, from, to } = appointmentData;
+    const { selectedBarberId, date, from, to, serviceId } = appointmentData;
+
+
+    const existingAppointment = await sql`
+      SELECT COUNT(*) as count 
+      FROM appointment_slots 
+      WHERE customer_id = ${userId} 
+        AND day = ${date}
+    `;
+
+    if (existingAppointment[0].count > 0) {
+      return { 
+        error: "You already have an appointment booked for this date. Only one appointment per day is allowed." 
+      };
+    }
 
     // Generate all time slots that need to be updated
     const timeSlots = generateTimeSlots(from, to);
@@ -132,7 +146,7 @@ export async function createUserAppointment(userId, appointmentData) {
       for (const timeSlot of timeSlots) {
         const result = await sql`
           UPDATE appointment_slots 
-          SET customer_id = ${userId}
+          SET customer_id = ${userId},service_id = ${serviceId}
           WHERE day = ${date} 
             AND barber_id = ${selectedBarberId} 
             AND start_time = ${timeSlot}
@@ -490,7 +504,7 @@ export async function cancelAppointmentWithToken(token) {
       for (const timeSlot of timeSlots) {
         const result = await sql`
           UPDATE appointment_slots 
-          SET customer_id = NULL
+          SET customer_id = NULL, service_id = NULL
           WHERE day = ${date} 
             AND customer_id = ${customer_id}
             AND start_time = ${timeSlot}
@@ -773,6 +787,74 @@ export async function updateBarberInfo(barberId, updateData) {
   }
 }
 
+export async function updateBarberServices(barberId, serviceIds) {
+  const session = await auth();
+  
+  if (!session?.user?.isAdmin) {
+    return { error: "Unauthorized - Admin access required" };
+  }
+
+  if (!serviceIds || serviceIds.length === 0) {
+    return { error: "At least one service must be selected" };
+  }
+
+  try {
+    // Validate that all service IDs exist
+    const validServices = await sql`
+      SELECT id, name FROM services WHERE id = ANY(${serviceIds})
+    `;
+
+    if (validServices.length !== serviceIds.length) {
+      return { error: "One or more selected services are invalid" };
+    }
+
+    // Check if barber exists
+    const barber = await sql`
+      SELECT id FROM barbers WHERE id = ${barberId}
+    `;
+
+    if (barber.length === 0) {
+      return { error: "Barber not found" };
+    }
+
+    await sql.begin(async (sql) => {
+      // Delete all existing barber-service relationships
+      await sql`
+        DELETE FROM barber_services WHERE barber_id = ${barberId}
+      `;
+
+      // Insert new barber-service relationships
+      for (const serviceId of serviceIds) {
+        await sql`
+          INSERT INTO barber_services (barber_id, service_id)
+          VALUES (${barberId}, ${serviceId})
+        `;
+      }
+    });
+
+    // Get updated services with details
+    const updatedServices = await sql`
+      SELECT s.id, s.name, s.duration_minutes, s.price, s.description
+      FROM services s
+      JOIN barber_services bs ON s.id = bs.service_id
+      WHERE bs.barber_id = ${barberId}
+    `;
+
+    const serviceNames = updatedServices.map(s => s.name).join(', ');
+
+    return {
+      success: true,
+      services: updatedServices,
+      message: `Barber services updated successfully: ${serviceNames}`
+    };
+
+  } catch (error) {
+    console.error("Error updating barber services:", error);
+    return { error: "Failed to update barber services. Please try again." };
+  }
+}
+
+
 export async function deleteCustomer(customerId) {
   const session = await auth();
 
@@ -813,18 +895,18 @@ export async function deleteCustomer(customerId) {
   }
 }
 
-export async function cancelBarberAppointment({ barberId, customerId, date, startTime }) {
+export async function cancelBarberAppointment({ barberId, customerId, date, start_time, service_duration, serviceId }) {
   const session = await auth();
 
   // Check if the logged-in user is the barber or an admin
-  if (!session?.user || (session.user.id !== barberId && !session.user.isAdmin)) {
+  if (!session?.user || (session.user.id !== barberId && !session.user.role === 'barber')) {
     return { error: "Unauthorized - You can only cancel your own appointments" };
   }
 
   try {
     let customerInfo;
     let barberInfo;
-    let cancelledSlot;
+    let cancelledSlots;
 
     await sql.begin(async (sql) => {
       // Get customer and barber information before cancelling
@@ -840,39 +922,74 @@ export async function cancelBarberAppointment({ barberId, customerId, date, star
         throw new Error("Customer or barber not found");
       }
 
-      // Cancel the appointment (set customer_id to NULL)
-      const result = await sql`
-        UPDATE appointment_slots 
-        SET customer_id = NULL
-        WHERE day = ${date} 
-          AND barber_id = ${barberId}
-          AND customer_id = ${customerId}
-          AND start_time = ${startTime}
-        RETURNING *
-      `;
+      customerInfo = customerResult[0];
+      barberInfo = barberResult[0];
 
-      if (result.length === 0) {
+      // Calculate number of slots needed based on service duration
+      const slotsNeeded = Math.ceil(service_duration / 15); // Each slot is 15 minutes
+      
+      // Generate consecutive time slots to cancel
+      const timeSlots = [];
+      const startTime = new Date(`1970-01-01T${start_time}`);
+      
+      for (let i = 0; i < slotsNeeded; i++) {
+        const currentSlotTime = new Date(startTime.getTime() + (i * 15 * 60 * 1000));
+        const timeString = currentSlotTime.toTimeString().slice(0, 5);
+        timeSlots.push(timeString);
+      }
+
+      console.log(`Cancelling ${slotsNeeded} slots:`, timeSlots);
+
+      // Cancel all consecutive slots for this appointment
+      const results = [];
+      for (const timeSlot of timeSlots) {
+        const result = await sql`
+          UPDATE appointment_slots 
+          SET customer_id = NULL, service_id = NULL
+          WHERE day = ${date} 
+            AND barber_id = ${barberId}
+            AND customer_id = ${customerId}
+            AND service_id = ${serviceId}
+            AND start_time = ${timeSlot}
+          RETURNING *
+        `;
+        
+        if (result.length > 0) {
+          results.push(...result);
+        }
+      }
+
+      if (results.length === 0) {
         throw new Error("Appointment not found or already cancelled");
       }
 
-      customerInfo = customerResult[0];
-      barberInfo = barberResult[0];
-      cancelledSlot = result[0];
+      cancelledSlots = results;
+      
+      console.log(`Successfully cancelled ${results.length} appointment slots`);
     });
 
+    // Calculate end time for notification
+    const endTime = new Date(`1970-01-01T${start_time}`);
+    endTime.setMinutes(endTime.getMinutes() + service_duration);
+    const endTimeString = endTime.toTimeString().slice(0, 5);
+    const timeRange = `${start_time} - ${endTimeString}`;
+
+    // Send cancellation notification to customer
     try {
       await sendCustomerCancellationNotification({
         customer: customerInfo,
         barber: barberInfo,
         appointmentDetails: {
           date,
-          time: startTime,
+          timeRange: timeRange,
           formattedDate: new Date(date).toLocaleDateString('en-US', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric'
-          })
+          }),
+          serviceName: cancelledSlots[0].service_name || 'Service',
+          duration: service_duration
         }
       });
     } catch (emailError) {
@@ -881,7 +998,9 @@ export async function cancelBarberAppointment({ barberId, customerId, date, star
 
     return {
       success: true,
-      message: `Appointment with ${customerInfo.name} has been cancelled successfully`
+      message: `Appointment with ${customerInfo.name} has been cancelled successfully`,
+      cancelledSlots: cancelledSlots.length,
+      timeRange: timeRange
     };
 
   } catch (error) {

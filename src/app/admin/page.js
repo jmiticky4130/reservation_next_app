@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { getTodaysAppointments } from "@/app/lib/data";
+import { getBarberAppointments, getAllBarbers } from "@/app/lib/data";
 
 export default async function AdminPage() {
   const session = await auth();
@@ -9,7 +9,46 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const todaysAppointments = await getTodaysAppointments();
+  // Get all barbers and their appointments
+  const barbers = await getAllBarbers();
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Get appointments for all barbers and filter for today
+  let allTodaysAppointments = [];
+  
+  for (const barber of barbers) {
+    try {
+      const barberAppointments = await getBarberAppointments(barber.id);
+      const todaysAppointments = barberAppointments.filter(appointment => 
+        appointment.day === today
+      );
+      
+      // Add barber info to each appointment
+      todaysAppointments.forEach(appointment => {
+        appointment.barber_name = barber.name;
+        appointment.barber_id = barber.id;
+      });
+      
+      allTodaysAppointments.push(...todaysAppointments);
+    } catch (error) {
+      console.error(`Error fetching appointments for barber ${barber.name}:`, error);
+    }
+  }
+
+  // Sort appointments by barber name and then by start time
+  allTodaysAppointments.sort((a, b) => {
+    if (a.barber_name !== b.barber_name) {
+      return a.barber_name.localeCompare(b.barber_name);
+    }
+    return a.start_time.localeCompare(b.start_time);
+  });
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(price);
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -36,7 +75,7 @@ export default async function AdminPage() {
         </div>
 
         <div className="p-6">
-          {todaysAppointments.length === 0 ? (
+          {allTodaysAppointments.length === 0 ? (
             <div className="text-center py-8">
               <svg className="mx-auto h-12 w-12 text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -48,7 +87,7 @@ export default async function AdminPage() {
             <div className="space-y-4">
               {/* Group appointments by barber */}
               {Object.entries(
-                todaysAppointments.reduce((acc, appointment) => {
+                allTodaysAppointments.reduce((acc, appointment) => {
                   const barberName = appointment.barber_name;
                   if (!acc[barberName]) {
                     acc[barberName] = [];
@@ -73,34 +112,55 @@ export default async function AdminPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {appointments
                       .sort((a, b) => a.start_time.localeCompare(b.start_time))
-                      .map((appointment, index) => (
-                        <div key={index} className="bg-gray-800 rounded-md p-3 border border-gray-600">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center mb-1">
-                                <svg className="w-4 h-4 text-blue-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span className="text-blue-400 font-medium text-sm">
-                                  {appointment.start_time.slice(0, 5)}
-                                </span>
-                              </div>
-                              <div className="flex items-center mb-1">
-                                <svg className="w-4 h-4 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                <span className="text-gray-200 font-medium text-sm">
-                                  {appointment.customer_name}
-                                </span>
-                              </div>
-                              <div className="flex items-center">
-                                <svg className="w-4 h-4 text-gray-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <span className="text-gray-400 text-xs truncate">
-                                  {appointment.customer_email}
-                                </span>
-                              </div>
+                      .map((appointment) => (
+                        <div key={appointment.id} className="bg-gray-800 rounded-md p-4 border border-gray-600">
+                          <div className="space-y-2">
+                            {/* Time */}
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-blue-400 font-medium text-sm">
+                                {appointment.time_range}
+                              </span>
+                            </div>
+                            
+                            {/* Customer */}
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              <span className="text-gray-200 font-medium text-sm">
+                                {appointment.customer_name}
+                              </span>
+                            </div>
+                            
+                            {/* Service */}
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span className="text-green-400 font-medium text-sm">
+                                {appointment.service_name}
+                              </span>
+                            </div>
+                            
+                            {/* Duration and Price */}
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span>{appointment.service_duration} min</span>
+                              <span className="text-yellow-400 font-medium">
+                                {formatPrice(appointment.service_price)}
+                              </span>
+                            </div>
+                            
+                            {/* Email */}
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span className="text-gray-400 text-xs truncate">
+                                {appointment.customer_email}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -113,6 +173,7 @@ export default async function AdminPage() {
         </div>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
           <div className="flex items-center">
@@ -126,7 +187,7 @@ export default async function AdminPage() {
             <div className="ml-5 w-0 flex-1">
               <dl>
                 <dt className="text-sm font-medium text-gray-400 truncate">Today&apos;s Appointments</dt>
-                <dd className="text-lg font-medium text-gray-200">{todaysAppointments.length}</dd>
+                <dd className="text-lg font-medium text-gray-200">{allTodaysAppointments.length}</dd>
               </dl>
             </div>
           </div>
@@ -145,7 +206,51 @@ export default async function AdminPage() {
               <dl>
                 <dt className="text-sm font-medium text-gray-400 truncate">Active Barbers</dt>
                 <dd className="text-lg font-medium text-gray-200">
-                  {new Set(todaysAppointments.map(app => app.barber_name)).size}
+                  {new Set(allTodaysAppointments.map(app => app.barber_name)).size}
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-purple-900 rounded-md flex items-center justify-center">
+                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
+            </div>
+            <div className="ml-5 w-0 flex-1">
+              <dl>
+                <dt className="text-sm font-medium text-gray-400 truncate">Today&apos;s Revenue</dt>
+                <dd className="text-lg font-medium text-gray-200">
+                  {formatPrice(
+                    allTodaysAppointments.reduce((sum, app) => sum + parseFloat(app.service_price), 0)
+                  )}
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-yellow-900 rounded-md flex items-center justify-center">
+                <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+            </div>
+            <div className="ml-5 w-0 flex-1">
+              <dl>
+                <dt className="text-sm font-medium text-gray-400 truncate">Avg. Duration</dt>
+                <dd className="text-lg font-medium text-gray-200">
+                  {allTodaysAppointments.length > 0 
+                    ? Math.round(allTodaysAppointments.reduce((sum, app) => sum + app.service_duration, 0) / allTodaysAppointments.length)
+                    : 0} min
                 </dd>
               </dl>
             </div>

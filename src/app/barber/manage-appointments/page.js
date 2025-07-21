@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getBarberAppointments, getBarberDetails } from "@/app/lib/data";
 import AppointmentsList from "@/app/components/AppointmentsList";
 
+
 export default async function ManageAppointmentsPage() {
   const session = await auth();
 
@@ -17,6 +18,18 @@ export default async function ManageAppointmentsPage() {
   if (!barberDetails) {
     redirect("/login");
   }
+
+  const today = new Date().toISOString().split('T')[0];
+  const todaysAppointments = appointments.filter(app => app.day === today);
+  
+  const thisWeekStart = new Date();
+  const thisWeekEnd = new Date();
+  thisWeekEnd.setDate(thisWeekStart.getDate() + 7);
+  
+  const thisWeekAppointments = appointments.filter(app => {
+    const appDate = new Date(app.day);
+    return appDate >= thisWeekStart && appDate <= thisWeekEnd;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -39,7 +52,7 @@ export default async function ManageAppointmentsPage() {
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-blue-900 rounded-md flex items-center justify-center">
                 <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z" />
                 </svg>
               </div>
             </div>
@@ -63,12 +76,9 @@ export default async function ManageAppointmentsPage() {
             </div>
             <div className="ml-5 w-0 flex-1">
               <dl>
-                <dt className="text-sm font-medium text-gray-400 truncate">Today&apos;  s Appointments</dt>
+                <dt className="text-sm font-medium text-gray-400 truncate">Today's Appointments</dt>
                 <dd className="text-lg font-medium text-gray-200">
-                  {appointments.filter(app => {
-                    const today = new Date().toISOString().split('T')[0];
-                    return app.day === today;
-                  }).length}
+                  {todaysAppointments.length}
                 </dd>
               </dl>
             </div>
@@ -88,13 +98,7 @@ export default async function ManageAppointmentsPage() {
               <dl>
                 <dt className="text-sm font-medium text-gray-400 truncate">This Week</dt>
                 <dd className="text-lg font-medium text-gray-200">
-                  {appointments.filter(app => {
-                    const today = new Date();
-                    const weekEnd = new Date();
-                    weekEnd.setDate(today.getDate() + 7);
-                    const appDate = new Date(app.day);
-                    return appDate >= today && appDate <= weekEnd;
-                  }).length}
+                  {thisWeekAppointments.length}
                 </dd>
               </dl>
             </div>
@@ -102,7 +106,6 @@ export default async function ManageAppointmentsPage() {
         </div>
       </div>
 
-      {/* Appointments List */}
       <AppointmentsList 
         appointments={appointments}
         barberDetails={barberDetails}

@@ -41,6 +41,7 @@ procedures to insert repeating amount of available
 
 need to add an authentification for the user - need to connect it with the click in the appointment calendar - maybe through searchparams
 
-need to create a page for the user login and signin like the one for barber
-delete barber registration - this is for the admin to deal with 
-when barber 1 is selected oonly 2 services, when any barber barber 1 has 3 services- FIX
+need to create something that deals with identification of the appointments - maybe service id at the starting appointment slot so i know how long the service last for viewing appointments and also canceling appointments
+
+need to test emails sending could be gmail issue - long delay 
+

@@ -132,11 +132,21 @@ export async function sendCustomerConfirmation({
   const cancellationToken = generateCancellationToken();
   const appointmentId = `${customer.id}_${date}_${timeRange}`;
   
-  // Store the cancellation token in database
-  const expiresAt = new Date(date); // Token expires on appointment date
+   const startTime = timeRange.split(' - ')[0];
+  
+  const [hours, minutes] = startTime.split(':');
+  const appointmentDateTime = new Date(date);
+  appointmentDateTime.setHours(parseInt(hours, 10));
+  appointmentDateTime.setMinutes(parseInt(minutes, 10));
+  appointmentDateTime.setSeconds(0);
+  appointmentDateTime.setMilliseconds(0);
+  
+  const expiresAt = new Date(appointmentDateTime.getTime() - (12 * 60 * 60 * 1000)); // 12 hours before
   const createdAt = new Date();
 
   console.log("appointment ID: ", appointmentId, customer.id, cancellationToken, expiresAt, createdAt);
+  console.log("appointmentDateTime: ", appointmentDateTime);
+  console.log("expiresAt: ", expiresAt);
   
   try {
     await sql`
@@ -147,8 +157,9 @@ export async function sendCustomerConfirmation({
     console.error("Failed to create cancellation token:", error);
   }
 
+
   // Create cancellation URL
-  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  const baseUrl = process.env.VERCEL_URL || 'http://localhost:3000';
   const cancellationUrl = `${baseUrl}/cancel-appointment?token=${cancellationToken}`;
 
   const emailContent = `
@@ -284,7 +295,7 @@ export async function sendCustomerCancellationNotification({
         <p style="margin: 0 0 15px 0; color: #155724; font-size: 14px;">
           Visit our website to book a new appointment:
         </p>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}" 
+        <a href="${process.env.VERCEL_URL || 'http://localhost:3000'}" 
            style="display: inline-block; padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
           Book New Appointment
         </a>
@@ -314,7 +325,7 @@ Status: CANCELLED
 
 We apologize for any inconvenience this may cause. Please feel free to book a new appointment at your convenience.
 
-Visit our website to book a new appointment: ${process.env.NEXTAUTH_URL || 'http://localhost:3000'}
+Visit our website to book a new appointment: ${process.env.VERCEL_URL || 'http://localhost:3000'}
 
 If you have any questions, please don't hesitate to contact us.
 

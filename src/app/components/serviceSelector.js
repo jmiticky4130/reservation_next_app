@@ -154,12 +154,14 @@ export default function ServiceSelector({
 
     setAppointmentData({
       selectedBarberId: actualBarberId,
+      serviceId: selectedService.id,
       ...appointmentWithoutBarberId,
     });
 
     console.log("Appointment data:", {
       selectedBarberId: actualBarberId,
       ...appointmentWithoutBarberId,
+      serviceId: selectedService.id,
     });
 
     setShowRegisterModal(true);

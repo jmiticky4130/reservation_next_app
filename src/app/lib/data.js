@@ -149,21 +149,82 @@ export async function getBarberAppointments(barberId, startDate = new Date()) {
     const startStr = formatDateISO(start);
     const endStr = formatDateISO(end);
 
-    const appointments = await sql`
+    const appointmentSlots = await sql`
       SELECT 
         ap.day::text,
         ap.start_time::text,
         ap.customer_id,
+        ap.service_id,
+        s.name as service_name,
+        s.duration_minutes as service_duration,
+        s.price as service_price,
         c.name as customer_name,
         c.email as customer_email
       FROM appointment_slots ap
       JOIN customers c ON c.id = ap.customer_id
+      JOIN services s ON s.id = ap.service_id
       WHERE ap.barber_id = ${barberId}
         AND ap.day >= ${startStr}
         AND ap.day < ${endStr}
         AND ap.customer_id IS NOT NULL
       ORDER BY ap.day, ap.start_time
     `;
+
+    console.log("Fetched barber appointments from database:", appointmentSlots);
+    
+    // Group slots by unique appointment (customer + day + service)
+    const appointmentMap = new Map();
+    
+    for (const slot of appointmentSlots) {
+      const appointmentKey = `${slot.customer_id}_${slot.day}_${slot.service_id}`;
+      
+      if (!appointmentMap.has(appointmentKey)) {
+        appointmentMap.set(appointmentKey, {
+          slots: [],
+          ...slot
+        });
+      }
+      
+      appointmentMap.get(appointmentKey).slots.push(slot);
+    }
+
+    console.log("Grouped appointments by key:", appointmentMap.size);
+
+    // Convert to final appointment format
+    const appointments = [];
+    
+    for (const [key, appointmentData] of appointmentMap) {
+      // Sort slots by time to get the earliest start time
+      appointmentData.slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+      
+      const firstSlot = appointmentData.slots[0];
+      const slotsNeeded = Math.ceil(appointmentData.service_duration / 15);
+      
+      // Calculate end time based on service duration
+      const startTime = new Date(`1970-01-01T${firstSlot.start_time}`);
+      const endTime = new Date(startTime.getTime() + (appointmentData.service_duration * 60 * 1000));
+      const endTimeString = endTime.toTimeString().slice(0, 5);
+
+      appointments.push({
+        id: `${firstSlot.customer_id}_${firstSlot.day}_${firstSlot.start_time}`,
+        day: firstSlot.day,
+        start_time: firstSlot.start_time,
+        end_time: endTimeString,
+        time_range: `${firstSlot.start_time} - ${endTimeString}`,
+        customer_id: firstSlot.customer_id,
+        customer_name: firstSlot.customer_name,
+        customer_email: firstSlot.customer_email,
+        service_id: firstSlot.service_id,
+        service_name: firstSlot.service_name,
+        service_duration: appointmentData.service_duration,
+        service_price: appointmentData.service_price,
+        slots_count: slotsNeeded,
+        actual_slots_found: appointmentData.slots.length
+      });
+    }
+
+    console.log("Final processed appointments:", appointments);
+    console.log("Total appointments found:", appointments.length);
 
     return appointments || [];
   } catch (error) {
@@ -237,21 +298,33 @@ export async function getTodaysAppointments() {
   }
 }
 
+
 export async function getAllServices() {
   try {
     const services = await sql`
-      SELECT 
-        id,
-        name,
-        description,
-        duration_minutes,
-        price
+      SELECT id, name, duration_minutes, price, description
       FROM services
-      ORDER BY name ASC
+      ORDER BY name
     `;
     return services || [];
   } catch (error) {
     console.error("Database error:", error);
     throw new Error("Failed to fetch services");
+  }
+}
+
+export async function getBarberServices(barberId) {
+  try {
+    const barberServices = await sql`
+      SELECT bs.*, s.name, s.duration_minutes, s.price, s.description
+      FROM barber_services bs
+      JOIN services s ON s.id = bs.service_id
+      WHERE bs.barber_id = ${barberId}
+      ORDER BY s.name
+    `;
+    return barberServices || [];
+  } catch (error) {
+    console.error("Database error:", error);
+    throw new Error("Failed to fetch barber services");
   }
 }

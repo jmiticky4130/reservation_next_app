@@ -1,17 +1,21 @@
 "use client";
 import { useState, useEffect } from "react";
-import { getBarberAppointments } from "@/app/lib/data";
+import { getBarberAppointments, getAllServices, getBarberServices } from "@/app/lib/data";
 import BarberInfo from "./BarberInfo";
 import BarberAppointments from "./BarberAppointments";
 
 export default function BarberModal({ barber, onClose }) {
   const [activeTab, setActiveTab] = useState("info");
   const [appointments, setAppointments] = useState([]);
+  const [services, setServices] = useState([]);
+  const [barberServices, setBarberServices] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab === "appointments") {
       loadAppointments();
+    } else if (activeTab === "info") {
+      loadServicesData();
     }
   }, [activeTab, barber.id]);
 
@@ -25,6 +29,29 @@ export default function BarberModal({ barber, onClose }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadServicesData = async () => {
+    setLoading(true);
+    try {
+      // Load all services and barber's assigned services
+      const [allServices, assignedServices] = await Promise.all([
+        getAllServices(),
+        getBarberServices(barber.id)
+      ]);
+      
+      setServices(allServices);
+      setBarberServices(assignedServices);
+    } catch (error) {
+      console.error("Failed to load services:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBarberUpdate = (updatedBarber) => {
+    // Refresh services data when barber is updated
+    loadServicesData();
   };
 
   return (
@@ -86,10 +113,12 @@ export default function BarberModal({ barber, onClose }) {
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[60vh]">
           {activeTab === "info" && (
-            <BarberInfo barber={barber} onUpdate={(updatedBarber) => {
-              // Handle barber update - you could pass this up to parent
-              console.log("Barber updated:", updatedBarber);
-            }} />
+            <BarberInfo 
+              barber={barber} 
+              services={services}
+              barberServices={barberServices}
+              onUpdate={handleBarberUpdate}
+            />
           )}
           
           {activeTab === "appointments" && (
