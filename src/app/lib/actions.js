@@ -9,40 +9,63 @@ import {
   sendBarberNotification,
   sendCustomerConfirmation,
   sendBarberCancellationNotification,
-  sendCustomerCancellationNotification
+  sendCustomerCancellationNotification,
 } from "@/app/lib/emails";
 import {
   groupSlotsByBarberAndDay,
   getAvailableCombinations,
 } from "@/app/util/slotsToAppointments";
-import { revalidatePath } from "next/cache";
 
 const sql = postgres(process.env.DATABASE_URL, { ssl: "verify-full" });
 
 export async function sendVerificationCodeAction(email) {
   try {
-    const result = await sendVerificationCode(email);
-    
-    if (result.success) {
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiration
+    // Generate a random 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiration
 
-      await sql`
-        INSERT INTO email_verification_codes (email, code, expires_at)
-        VALUES (${email}, ${result.code}, ${expiresAt})
-      `;
+    // First, insert the code into the database
+    const res = await sql`
+      INSERT INTO email_verification_codes (email, code, expires_at)
+      VALUES (${email}, ${code}, ${expiresAt})
+    `;
+    console.log("result: !!!!!!!!!!!!!!!!!!!!", res);
 
+    // Then send the email with the generated code
+    const emailResult = await sendVerificationCode(email, code);
+
+    if (emailResult.success) {
       return { success: true };
-    }
+    } else {
+      // If email failed to send, remove the code from database
+      await sql`
+        DELETE FROM email_verification_codes 
+        WHERE email = ${email} AND code = ${code}
+      `;
+      console.log("result", res);
 
-    return result;
+      return {
+        error: emailResult.error || "Failed to send verification email",
+      };
+    }
   } catch (error) {
     console.error("Error in sendVerificationCodeAction:", error);
+
+    // Clean up any partial database entries
+    try {
+      await sql`
+        DELETE FROM email_verification_codes 
+        WHERE email = ${email} AND expires_at > NOW()
+      `;
+    } catch (cleanupError) {
+      console.error("Error cleaning up verification codes:", cleanupError);
+    }
+
     return {
       error: "Failed to send verification code. Please try again later.",
     };
   }
 }
-
 export async function userEmailExists(email, role) {
   if (!email) {
     return { error: "Email is required" };
@@ -113,7 +136,6 @@ export async function createUserAppointment(userId, appointmentData) {
   try {
     const { selectedBarberId, date, from, to, serviceId } = appointmentData;
 
-
     const existingAppointment = await sql`
       SELECT COUNT(*) as count 
       FROM appointment_slots 
@@ -122,8 +144,9 @@ export async function createUserAppointment(userId, appointmentData) {
     `;
 
     if (existingAppointment[0].count > 0) {
-      return { 
-        error: "You already have an appointment booked for this date. Only one appointment per day is allowed." 
+      return {
+        error:
+          "You already have an appointment booked for this date. Only one appointment per day is allowed.",
       };
     }
 
@@ -207,7 +230,6 @@ export async function createUserAppointment(userId, appointmentData) {
         sql, // Pass sql connection
       });
       console.log("Customer confirmation sent successfully");
-
     } catch (emailError) {
       console.error("Failed to send email notifications:", emailError);
     }
@@ -388,7 +410,7 @@ export async function calculateAllAvailableAppointments(
 ) {
   try {
     let slots;
-    
+
     if (barberId === 0) {
       slots = await sql`
         SELECT DISTINCT
@@ -416,10 +438,10 @@ export async function calculateAllAvailableAppointments(
     }
 
     // Convert database results to proper format
-    const formattedSlots = slots.map(slot => ({
-      day: slot.day.toISOString().split('T')[0], // Convert to YYYY-MM-DD
+    const formattedSlots = slots.map((slot) => ({
+      day: slot.day.toISOString().split("T")[0], // Convert to YYYY-MM-DD
       barber_id: slot.barber_id,
-      start_time: slot.start_time
+      start_time: slot.start_time,
     }));
 
     const groupedData = groupSlotsByBarberAndDay(formattedSlots);
@@ -489,8 +511,8 @@ export async function cancelAppointmentWithToken(token) {
     const { appointment_id, customer_id } = tokenData;
 
     // Parse appointment ID to get details
-    const [customerId, date, timeRange] = appointment_id.split('_');
-    const [startTime, endTime] = timeRange.split(' - ');
+    const [customerId, date, timeRange] = appointment_id.split("_");
+    const [startTime, endTime] = timeRange.split(" - ");
 
     // Generate time slots to clear
     const timeSlots = generateTimeSlots(startTime, endTime);
@@ -536,12 +558,15 @@ export async function cancelAppointmentWithToken(token) {
       try {
         await sendBarberCancellationNotification({
           barber: barberInfo,
-          customer: { name: tokenData.customer_name, email: tokenData.customer_email },
+          customer: {
+            name: tokenData.customer_name,
+            email: tokenData.customer_email,
+          },
           appointmentDetails: {
             date,
             timeRange,
-            slotsCount: timeSlots.length
-          }
+            slotsCount: timeSlots.length,
+          },
         });
       } catch (emailError) {
         console.error("Failed to send cancellation notification:", emailError);
@@ -551,17 +576,16 @@ export async function cancelAppointmentWithToken(token) {
     return {
       success: true,
       appointmentDetails: {
-        date: new Date(date).toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
+        date: new Date(date).toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
         }),
         timeRange,
-        barberName: barberInfo?.name || 'Unknown'
-      }
+        barberName: barberInfo?.name || "Unknown",
+      },
     };
-
   } catch (error) {
     console.error("Error cancelling appointment:", error);
     return { error: "Failed to cancel appointment" };
@@ -570,7 +594,7 @@ export async function cancelAppointmentWithToken(token) {
 
 export async function createBarber(formData) {
   const session = await auth();
-  
+
   // Only admins can create barbers
   if (!session?.user?.isAdmin) {
     return { error: "Unauthorized - Admin access required" };
@@ -621,7 +645,9 @@ export async function createBarber(formData) {
 
     // Validate that all service IDs exist
     const validServices = await sql`
-      SELECT id FROM services WHERE id = ANY(${serviceIds.map(id => parseInt(id))})
+      SELECT id FROM services WHERE id = ANY(${serviceIds.map((id) =>
+        parseInt(id)
+      )})
     `;
 
     if (validServices.length !== serviceIds.length) {
@@ -660,14 +686,13 @@ export async function createBarber(formData) {
       WHERE bs.barber_id = ${newBarber.id}
     `;
 
-    const serviceNames = assignedServices.map(s => s.name).join(', ');
+    const serviceNames = assignedServices.map((s) => s.name).join(", ");
 
     return {
       success: true,
       barber: newBarber,
-      message: `Barber ${name} created successfully with services: ${serviceNames}`
+      message: `Barber ${name} created successfully with services: ${serviceNames}`,
     };
-
   } catch (error) {
     console.error("Error creating barber:", error);
 
@@ -692,7 +717,7 @@ export async function deleteBarber(barberId) {
     return { error: "Unauthorized - Admin access required" };
   }
 
-  try{
+  try {
     // Check if barber exists
     const barber = await sql`
       SELECT id, name FROM barbers WHERE id = ${barberId}
@@ -709,7 +734,7 @@ export async function deleteBarber(barberId) {
 
     return {
       success: true,
-      message: `Barber ${barber[0].name} deleted successfully`
+      message: `Barber ${barber[0].name} deleted successfully`,
     };
   } catch (error) {
     console.error("Error deleting barber:", error);
@@ -719,7 +744,7 @@ export async function deleteBarber(barberId) {
 
 export async function updateBarberInfo(barberId, updateData) {
   const session = await auth();
-  
+
   if (!session?.user?.isAdmin) {
     return { error: "Unauthorized - Admin access required" };
   }
@@ -767,9 +792,8 @@ export async function updateBarberInfo(barberId, updateData) {
     return {
       success: true,
       barber: result[0],
-      message: "Barber information updated successfully"
+      message: "Barber information updated successfully",
     };
-
   } catch (error) {
     console.error("Error updating barber:", error);
 
@@ -789,7 +813,7 @@ export async function updateBarberInfo(barberId, updateData) {
 
 export async function updateBarberServices(barberId, serviceIds) {
   const session = await auth();
-  
+
   if (!session?.user?.isAdmin) {
     return { error: "Unauthorized - Admin access required" };
   }
@@ -840,20 +864,18 @@ export async function updateBarberServices(barberId, serviceIds) {
       WHERE bs.barber_id = ${barberId}
     `;
 
-    const serviceNames = updatedServices.map(s => s.name).join(', ');
+    const serviceNames = updatedServices.map((s) => s.name).join(", ");
 
     return {
       success: true,
       services: updatedServices,
-      message: `Barber services updated successfully: ${serviceNames}`
+      message: `Barber services updated successfully: ${serviceNames}`,
     };
-
   } catch (error) {
     console.error("Error updating barber services:", error);
     return { error: "Failed to update barber services. Please try again." };
   }
 }
-
 
 export async function deleteCustomer(customerId) {
   const session = await auth();
@@ -887,7 +909,7 @@ export async function deleteCustomer(customerId) {
 
     return {
       success: true,
-      message: `Customer ${customer[0].name} deleted successfully`
+      message: `Customer ${customer[0].name} deleted successfully`,
     };
   } catch (error) {
     console.error("Error deleting customer:", error);
@@ -895,12 +917,24 @@ export async function deleteCustomer(customerId) {
   }
 }
 
-export async function cancelBarberAppointment({ barberId, customerId, date, start_time, service_duration, serviceId }) {
+export async function cancelBarberAppointment({
+  barberId,
+  customerId,
+  date,
+  start_time,
+  service_duration,
+  serviceId,
+}) {
   const session = await auth();
 
   // Check if the logged-in user is the barber or an admin
-  if (!session?.user || (session.user.id !== barberId && !session.user.role === 'barber')) {
-    return { error: "Unauthorized - You can only cancel your own appointments" };
+  if (
+    !session?.user ||
+    (session.user.id !== barberId && !session.user.role === "barber")
+  ) {
+    return {
+      error: "Unauthorized - You can only cancel your own appointments",
+    };
   }
 
   try {
@@ -927,13 +961,15 @@ export async function cancelBarberAppointment({ barberId, customerId, date, star
 
       // Calculate number of slots needed based on service duration
       const slotsNeeded = Math.ceil(service_duration / 15); // Each slot is 15 minutes
-      
+
       // Generate consecutive time slots to cancel
       const timeSlots = [];
       const startTime = new Date(`1970-01-01T${start_time}`);
-      
+
       for (let i = 0; i < slotsNeeded; i++) {
-        const currentSlotTime = new Date(startTime.getTime() + (i * 15 * 60 * 1000));
+        const currentSlotTime = new Date(
+          startTime.getTime() + i * 15 * 60 * 1000
+        );
         const timeString = currentSlotTime.toTimeString().slice(0, 5);
         timeSlots.push(timeString);
       }
@@ -953,7 +989,7 @@ export async function cancelBarberAppointment({ barberId, customerId, date, star
             AND start_time = ${timeSlot}
           RETURNING *
         `;
-        
+
         if (result.length > 0) {
           results.push(...result);
         }
@@ -964,7 +1000,7 @@ export async function cancelBarberAppointment({ barberId, customerId, date, star
       }
 
       cancelledSlots = results;
-      
+
       console.log(`Successfully cancelled ${results.length} appointment slots`);
     });
 
@@ -982,29 +1018,33 @@ export async function cancelBarberAppointment({ barberId, customerId, date, star
         appointmentDetails: {
           date,
           timeRange: timeRange,
-          formattedDate: new Date(date).toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+          formattedDate: new Date(date).toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
           }),
-          serviceName: cancelledSlots[0].service_name || 'Service',
-          duration: service_duration
-        }
+          serviceName: cancelledSlots[0].service_name || "Service",
+          duration: service_duration,
+        },
       });
     } catch (emailError) {
-      console.error("Failed to send cancellation email to customer:", emailError);
+      console.error(
+        "Failed to send cancellation email to customer:",
+        emailError
+      );
     }
 
     return {
       success: true,
       message: `Appointment with ${customerInfo.name} has been cancelled successfully`,
       cancelledSlots: cancelledSlots.length,
-      timeRange: timeRange
+      timeRange: timeRange,
     };
-
   } catch (error) {
     console.error("Error cancelling appointment:", error);
-    return { error: error.message || "Failed to cancel appointment. Please try again." };
+    return {
+      error: error.message || "Failed to cancel appointment. Please try again.",
+    };
   }
 }

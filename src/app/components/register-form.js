@@ -8,7 +8,7 @@ import {
   userEmailExists,
 } from "../lib/actions";
 
-import { sendVerificationCode } from "../lib/emails";
+import { sendVerificationCodeAction } from "../lib/actions";
 
 export default function RegisterForm({ role, showLoginLink = true }) {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function RegisterForm({ role, showLoginLink = true }) {
 
       if (role === "customer") {
         if (!showVerificationCodeField) {
-          const res = await sendVerificationCode(email);
+          const res = await sendVerificationCodeAction(email);
           if (res.success) {
             setShowVerificationCodeField(true);
             return "Verification code sent to your email. Please enter it to continue.";

@@ -22,9 +22,7 @@ function generateCancellationToken() {
 }
 
 // Send verification code email
-export async function sendVerificationCode(email) {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-
+export async function sendVerificationCode(email, code) {
   try {
     console.log("Sending verification code:", code, "to email:", email);
     await transporter.sendMail({
