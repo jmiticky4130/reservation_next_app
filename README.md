@@ -45,3 +45,5 @@ need to create something that deals with identification of the appointments - ma
 
 need to test emails sending could be gmail issue - long delay 
 
+maybe remove framer motion in customer UI - causes lag
+

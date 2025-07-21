@@ -159,7 +159,7 @@ export async function sendCustomerConfirmation({
 
 
   // Create cancellation URL
-  const baseUrl = process.env.VERCEL_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
   const cancellationUrl = `${baseUrl}/cancel-appointment?token=${cancellationToken}`;
 
   const emailContent = `
@@ -295,7 +295,7 @@ export async function sendCustomerCancellationNotification({
         <p style="margin: 0 0 15px 0; color: #155724; font-size: 14px;">
           Visit our website to book a new appointment:
         </p>
-        <a href="${process.env.VERCEL_URL || 'http://localhost:3000'}" 
+        <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}" 
            style="display: inline-block; padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
           Book New Appointment
         </a>
@@ -325,7 +325,7 @@ Status: CANCELLED
 
 We apologize for any inconvenience this may cause. Please feel free to book a new appointment at your convenience.
 
-Visit our website to book a new appointment: ${process.env.VERCEL_URL || 'http://localhost:3000'}
+Visit our website to book a new appointment: ${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}
 
 If you have any questions, please don't hesitate to contact us.
 
