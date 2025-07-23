@@ -24,7 +24,6 @@ function generateCancellationToken() {
 // Send verification code email
 export async function sendVerificationCode(email, code) {
   try {
-    console.log("Sending verification code:", code, "to email:", email);
     await transporter.sendMail({
       from: process.env.SMTP_USER,
       to: email,
@@ -124,7 +123,6 @@ export async function sendCustomerConfirmation({
     day: "numeric",
   });
 
-  console.log("customer: ", customer, "\nbarber: ", barber, "\nappointmentdetails: ", appointmentDetails);
 
   // Generate a unique cancellation token
   const cancellationToken = generateCancellationToken();
@@ -142,10 +140,6 @@ export async function sendCustomerConfirmation({
   const expiresAt = new Date(appointmentDateTime.getTime() - (12 * 60 * 60 * 1000)); // 12 hours before
   const createdAt = new Date();
 
-  console.log("appointment ID: ", appointmentId, customer.id, cancellationToken, expiresAt, createdAt);
-  console.log("appointmentDateTime: ", appointmentDateTime);
-  console.log("expiresAt: ", expiresAt);
-  
   try {
     await sql`
       INSERT INTO appointment_cancellation_tokens (appointment_id, customer_id, token, expires_at, created_at, used)

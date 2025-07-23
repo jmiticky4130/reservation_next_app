@@ -170,7 +170,6 @@ export async function getBarberAppointments(barberId, startDate = new Date()) {
       ORDER BY ap.day, ap.start_time
     `;
 
-    console.log("Fetched barber appointments from database:", appointmentSlots);
     
     // Group slots by unique appointment (customer + day + service)
     const appointmentMap = new Map();
@@ -188,7 +187,6 @@ export async function getBarberAppointments(barberId, startDate = new Date()) {
       appointmentMap.get(appointmentKey).slots.push(slot);
     }
 
-    console.log("Grouped appointments by key:", appointmentMap.size);
 
     // Convert to final appointment format
     const appointments = [];
@@ -223,8 +221,6 @@ export async function getBarberAppointments(barberId, startDate = new Date()) {
       });
     }
 
-    console.log("Final processed appointments:", appointments);
-    console.log("Total appointments found:", appointments.length);
 
     return appointments || [];
   } catch (error) {

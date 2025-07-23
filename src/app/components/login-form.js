@@ -118,9 +118,6 @@ export default function LoginForm({
             <Link
               href={`/register?role=${role}`}
               className="text-blue-600 hover:underline"
-              onClick={() =>
-                console.log(`Navigating to: /register-user?role=${role}`)
-              }
             >
               Create an account
             </Link>

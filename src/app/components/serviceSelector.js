@@ -75,7 +75,6 @@ export default function ServiceSelector({
 
   useEffect(() => {
     setGroupedData(groupSlotsByBarberAndDay(slots));
-    console.log("Grouped data:", groupedData);
   }, []);
 
   function filterServicesByBarber(barberId) {
@@ -119,9 +118,6 @@ export default function ServiceSelector({
         service.duration_minutes,
         selectedBarberOption.value
       );
-
-      console.log("Available combinations for booking:", availableCombinations);
-
       // Set state to show appointment calendar
       setAvailableAppointments(availableCombinations);
       setSelectedService(service);
@@ -141,10 +137,6 @@ export default function ServiceSelector({
   };
 
   const handleAppointmentSelect = (appointment) => {
-    console.log("Selected appointment:", appointment);
-    console.log("For service:", selectedService);
-    console.log("With barber:", selectedBarberOption);
-
     // Extract barberId and remove it from the appointment object
     const { barberId, ...appointmentWithoutBarberId } = appointment;
 
@@ -158,11 +150,6 @@ export default function ServiceSelector({
       ...appointmentWithoutBarberId,
     });
 
-    console.log("Appointment data:", {
-      selectedBarberId: actualBarberId,
-      ...appointmentWithoutBarberId,
-      serviceId: selectedService.id,
-    });
 
     setShowRegisterModal(true);
   };
@@ -193,10 +180,6 @@ export default function ServiceSelector({
           customerName: session?.user?.name || "Customer",
         });
 
-        console.log(
-          "Redirecting to success with params:",
-          searchParams.toString()
-        );
         router.push(`/success?${searchParams.toString()}`);
       }
     } catch (error) {

@@ -16,6 +16,8 @@ import {
   getAvailableCombinations,
 } from "@/app/util/slotsToAppointments";
 
+import sanitizeHtml from "sanitize-html";
+
 const sql = postgres(process.env.DATABASE_URL, { ssl: "verify-full" });
 
 export async function sendVerificationCodeAction(email) {
@@ -29,7 +31,6 @@ export async function sendVerificationCodeAction(email) {
       INSERT INTO email_verification_codes (email, code, expires_at)
       VALUES (${email}, ${code}, ${expiresAt})
     `;
-    console.log("result: !!!!!!!!!!!!!!!!!!!!", res);
 
     // Then send the email with the generated code
     const emailResult = await sendVerificationCode(email, code);
@@ -42,7 +43,6 @@ export async function sendVerificationCodeAction(email) {
         DELETE FROM email_verification_codes 
         WHERE email = ${email} AND code = ${code}
       `;
-      console.log("result", res);
 
       return {
         error: emailResult.error || "Failed to send verification email",
@@ -152,7 +152,6 @@ export async function createUserAppointment(userId, appointmentData) {
 
     // Generate all time slots that need to be updated
     const timeSlots = generateTimeSlots(from, to);
-    console.log("Time slots to update:", timeSlots);
 
     if (timeSlots.length === 0) {
       return { error: "Invalid time range - no slots to book" };
@@ -220,7 +219,6 @@ export async function createUserAppointment(userId, appointmentData) {
         customer: customerInfo,
         appointmentDetails,
       });
-      console.log("Barber notification sent successfully");
 
       // Send confirmation to customer - pass sql for database operations
       await sendCustomerConfirmation({
@@ -229,12 +227,9 @@ export async function createUserAppointment(userId, appointmentData) {
         appointmentDetails,
         sql, // Pass sql connection
       });
-      console.log("Customer confirmation sent successfully");
     } catch (emailError) {
       console.error("Failed to send email notifications:", emailError);
     }
-
-    console.log("Appointment slots updated:", updatedSlots);
 
     return {
       success: true,
@@ -257,11 +252,29 @@ export async function createUserAppointment(userId, appointmentData) {
 }
 
 export async function registerAndLogin(name, email, password, role, code) {
+
+  const cleanName = sanitizeHtml(name, {
+    allowedTags: [],
+    allowedAttributes: {},
+  });
+  const cleanEmail = sanitizeHtml(email, {
+    allowedTags: [],
+    allowedAttributes: {},
+  });
+  const cleanPassword = sanitizeHtml(password, {
+    allowedTags: [],
+    allowedAttributes: {},
+  });
+  const cleanRole = sanitizeHtml(role, {
+    allowedTags: [],
+    allowedAttributes: {},
+  });
+
   try {
     // First verify the email code
     const rows = await sql`
       SELECT * FROM email_verification_codes
-      WHERE email = ${email} AND code = ${code}
+      WHERE email = ${cleanEmail} AND code = ${code}
       ORDER BY created_at DESC
       LIMIT 1
     `;
@@ -278,19 +291,18 @@ export async function registerAndLogin(name, email, password, role, code) {
 
     // Delete the verification code after successful verification
     await sql`
-      DELETE FROM email_verification_codes WHERE email = ${email}
+      DELETE FROM email_verification_codes WHERE email = ${cleanEmail}
     `;
 
     // Register the user
-    const result = await registerUser(name, email, password, role);
-    console.log("Registration result:", result);
+    const result = await registerUser(cleanName, cleanEmail, cleanPassword, cleanRole);
 
     if (result.success) {
       try {
         await signIn("credentials", {
-          email,
-          password,
-          role,
+          email: cleanEmail,
+          password: cleanPassword,
+          role: cleanRole,
           redirect: false,
         });
 
@@ -331,15 +343,29 @@ export async function handleLogin(formData, role) {
   const email = formData.get("email");
   const password = formData.get("password");
 
-  if (!email || !password) {
+  // Sanitize inputs
+  const cleanEmail = sanitizeHtml(email, {
+    allowedTags: [],
+    allowedAttributes: {},
+  });
+  const cleanPassword = sanitizeHtml(password, {
+    allowedTags: [],
+    allowedAttributes: {},
+  });
+  const cleanRole = sanitizeHtml(role, {
+    allowedTags: [],
+    allowedAttributes: {},
+  });
+
+  if (!cleanEmail || !cleanPassword) {
     return { error: "Email and password are required" };
   }
 
   try {
     const response = await signIn("credentials", {
-      email,
-      password,
-      role,
+      email: cleanEmail,
+      password: cleanPassword,
+      role: cleanRole,
       redirect: false,
     });
 
@@ -974,8 +1000,6 @@ export async function cancelBarberAppointment({
         timeSlots.push(timeString);
       }
 
-      console.log(`Cancelling ${slotsNeeded} slots:`, timeSlots);
-
       // Cancel all consecutive slots for this appointment
       const results = [];
       for (const timeSlot of timeSlots) {
@@ -1000,8 +1024,6 @@ export async function cancelBarberAppointment({
       }
 
       cancelledSlots = results;
-
-      console.log(`Successfully cancelled ${results.length} appointment slots`);
     });
 
     // Calculate end time for notification
